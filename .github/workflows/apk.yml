@@ -48,7 +48,7 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
         run: |
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/bv.jks"
+          printf '%s' "$KEYSTORE_B64" | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/bv.jks"
           echo "KEYSTORE_PATH=$RUNNER_TEMP/bv.jks" >> "$GITHUB_ENV"
 
       - name: Compilar
