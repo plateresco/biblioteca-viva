@@ -10,8 +10,8 @@ android {
         applicationId "com.plateresco.bibliotecaviva"
         minSdk 24
         targetSdk 34
-        versionCode (project.findProperty("VERSION_CODE") ?: "1") as int
-        versionName (project.findProperty("VERSION_NAME") ?: "1.0")
+        versionCode = Integer.parseInt((project.findProperty("VERSION_CODE") ?: "1").toString())
+        versionName = (project.findProperty("VERSION_NAME") ?: "1.0").toString()
         // ID de cliente de Google (tipo Android) para el inicio de sesion nativo. No es un secreto.
         buildConfigField "String", "GOOGLE_CLIENT_ID", "\"${project.findProperty('GOOGLE_CLIENT_ID') ?: ''}\""
     }
