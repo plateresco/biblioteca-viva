@@ -8,7 +8,7 @@ import { fmtDur, daysSince } from './metrics.js';
 import { fallbackColors } from './color.js';
 import { checkReminder, syncNativeReminder } from './reminder.js';
 import { esApp } from './native.js';
-import { buscarActualizacion, ofrecerInstalar, versionActual } from './actualizar.js';
+import { buscarActualizacion, ofrecerInstalar, versionActual, autoActivo, fijarAuto } from './actualizar.js';
 import { imgShelf, shareImage } from './share.js';
 
 let sub = null;
@@ -169,6 +169,8 @@ const PAGES = {
   version(b) {
     const v = versionActual();
     b.innerHTML = `<div class="card"><h3>Mi Biblioteca ${esc(v?.name || '')}</h3><div class="sub">Las versiones nuevas se publican en GitHub y se instalan desde aquí.</div><div class="row" style="margin-top:12px"><button class="btn" id="bu">Buscar actualización</button></div><div class="small" id="bm" style="margin-top:10px"></div></div>`;
+    b.querySelector('.card').insertAdjacentHTML('beforeend', `<label class="row" style="margin-top:14px;gap:10px;align-items:center"><input type="checkbox" id="au" ${autoActivo() ? 'checked' : ''}> <span>Actualizar sola al abrir la app</span></label>`);
+    $('#au', b).onchange = e => fijarAuto(e.target.checked);
     $('#bu', b).onclick = async () => {
       $('#bm', b).textContent = 'Buscando…';
       try { const u = await buscarActualizacion(); if (u.nueva) { $('#bm', b).textContent = 'Hay una versión nueva.'; ofrecerInstalar(u); } else $('#bm', b).textContent = 'Ya tienes la última versión.'; }

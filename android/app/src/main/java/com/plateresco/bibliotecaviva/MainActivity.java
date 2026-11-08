@@ -308,11 +308,22 @@ public class MainActivity extends Activity {
                         ai.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(ai);
                         return;
                     }
-                    Uri u = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".fileprovider", apk);
-                    Intent i = new Intent(Intent.ACTION_VIEW);
-                    i.setDataAndType(u, "application/vnd.android.package-archive");
-                    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(i);
+                    // Instalacion por sesion: desde Android 12, tras la primera vez, se actualiza sin pedir confirmacion.
+                    android.content.pm.PackageInstaller pi = getPackageManager().getPackageInstaller();
+                    android.content.pm.PackageInstaller.SessionParams sp = new android.content.pm.PackageInstaller.SessionParams(android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+                    sp.setAppPackageName(getPackageName());
+                    if (Build.VERSION.SDK_INT >= 31) sp.setRequireUserAction(android.content.pm.PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
+                    int sid = pi.createSession(sp);
+                    try (android.content.pm.PackageInstaller.Session se = pi.openSession(sid)) {
+                        try (InputStream in = new java.io.FileInputStream(apk); OutputStream out = se.openWrite("app", 0, apk.length())) {
+                            byte[] buf = new byte[65536]; int n; while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                            se.fsync(out);
+                        }
+                        Intent ri = new Intent(MainActivity.this, InstaladorReceiver.class);
+                        android.app.PendingIntent pend = android.app.PendingIntent.getBroadcast(MainActivity.this, sid, ri,
+                                android.app.PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? android.app.PendingIntent.FLAG_MUTABLE : 0));
+                        se.commit(pend.getIntentSender());
+                    }
                 } catch (Exception e) { aviso("No pude bajar la actualización."); js("window.__actualizacionFalla&&window.__actualizacionFalla()"); }
             }).start();
         }

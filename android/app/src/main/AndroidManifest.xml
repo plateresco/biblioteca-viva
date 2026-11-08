@@ -55,6 +55,7 @@
         </activity>
 
         <receiver android:name=".RecordatorioReceiver" android:exported="false" />
+        <receiver android:name=".InstaladorReceiver" android:exported="false" />
         <receiver android:name=".ArranqueReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

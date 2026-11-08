@@ -3,6 +3,8 @@ import { A } from './native.js';
 import { $, esc, ic, openSheet, closeSheet, toast } from './ui.js';
 
 const REPO = 'plateresco/biblioteca-viva';
+export const autoActivo = () => { try { return localStorage.getItem('bv-auto-upd') !== '0'; } catch { return true; } };
+export const fijarAuto = on => { try { localStorage.setItem('bv-auto-upd', on ? '1' : '0'); } catch { } };
 export const versionActual = () => (A ? { code: A.versionCode(), name: A.versionName() } : null);
 
 export async function buscarActualizacion() {
@@ -28,6 +30,7 @@ export async function avisarSiHay() {
   if (!A) return;
   try {
     const u = await buscarActualizacion(); if (!u?.nueva) return;
+    if (autoActivo()) { toast('Actualizando a la versión ' + u.name + '…'); A.instalarActualizacion(u.url); return; }
     if (localStorage.getItem('bv-upd-visto') === String(u.code)) return;
     localStorage.setItem('bv-upd-visto', String(u.code)); ofrecerInstalar(u);
   } catch { /* sin conexión: se intenta otro día */ }
