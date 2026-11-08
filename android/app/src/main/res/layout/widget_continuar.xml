@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="14dp"
+    android:gravity="center_vertical"
+    android:background="@drawable/widget_fondo">
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="SEGUIR LEYENDO" android:textSize="10sp" android:textStyle="bold"
+        android:textColor="#62B7AB" android:letterSpacing="0.1" />
+    <TextView
+        android:id="@+id/w_titulo"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:maxLines="2" android:ellipsize="end"
+        android:textColor="#EDE6D6" android:textSize="17sp" android:textStyle="bold" />
+    <TextView
+        android:id="@+id/w_sub"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="2dp" android:maxLines="1" android:ellipsize="end"
+        android:textColor="#A9B7B3" android:textSize="12sp" />
+    <ProgressBar
+        android:id="@+id/w_prog"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="6dp"
+        android:layout_marginTop="10dp" android:max="100" android:progress="0"
+        android:progressTint="#62B7AB" android:progressBackgroundTint="#2C3A40" />
+    <TextView
+        android:id="@+id/w_btn"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="10dp" android:paddingLeft="16dp" android:paddingRight="16dp"
+        android:paddingTop="6dp" android:paddingBottom="6dp"
+        android:background="@drawable/widget_boton" android:text="Continuar"
+        android:textColor="#0B1613" android:textSize="12sp" android:textStyle="bold" />
+</LinearLayout>

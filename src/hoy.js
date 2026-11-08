@@ -14,6 +14,16 @@ export function currentBook() {
 }
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
+export const HOY_CARDS = [['cont', 'Seguir leyendo'], ['meta', 'Meta de hoy'], ['semana', 'Esta semana'], ['sesion', 'Sesión de lectura'], ['ritmo', 'Ritmo para terminar'], ['retomar', 'Retomar'], ['frase', 'Frase de tus libros']];
+const CLAVES = { 'Seguir leyendo': 'cont', 'Meta de hoy': 'meta', 'Esta semana': 'semana', 'Sesión de lectura': 'sesion', 'Ritmo para terminar': 'ritmo', 'Retomar': 'retomar', 'Frase de tus libros': 'frase' };
+// Orden y tarjetas escondidas elegidos en Apariencia.
+function ordenarHoy(v) {
+  const cards = [...v.querySelectorAll(':scope .card.hc')]; if (!cards.length) return;
+  const clave = c => { const t = c.querySelector('h3')?.textContent.trim() || ''; return Object.entries(CLAVES).find(([k]) => t.startsWith(k))?.[1]; };
+  const orden = P.hoyOrder || [], hide = P.hoyHide || [], padre = cards[0].parentNode, ancla = cards[cards.length - 1].nextSibling;
+  cards.forEach(c => { const k = clave(c); c.hidden = !!k && hide.includes(k); });
+  [...cards].sort((a, b) => { const ia = orden.indexOf(clave(a)), ib = orden.indexOf(clave(b)); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); }).forEach(c => padre.insertBefore(c, ancla));
+}
 export function drawHoy(ctx) {
   const v = $('#v-hoy'), now = new Date(), cur = currentBook(), done = pagesToday(), goal = P.goalDay || 20, R = 40, C = 2 * Math.PI * R;
   const retomar = S.books.filter(b => b !== cur && (b.s === 'abandonado' || (b.s === 'leyendo' && (daysSince(lastReadOf(b.id)) ?? 99) >= 7))).slice(0, 3);
@@ -47,6 +57,7 @@ export function drawHoy(ctx) {
 
   $('#hsr', v).onclick = () => import('./palette.js').then(m => m.openPalette());
   $$('.stp', v).forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'add') ctx.add(); else if (a === 'isbn') ctx.add('isbn'); else import('./more.js').then(m => { m.openMore('importar'); ctx.go('more'); }); });
+  ordenarHoy(v);
   $('#goCur', v)?.addEventListener('click', () => cur.hasFile ? ctx.openReader(cur.id) : ctx.openSheet(cur.id));
   $$('[data-r]', v).forEach(b => b.onclick = () => { const x = byId(+b.dataset.r); x.hasFile ? ctx.openReader(x.id) : ctx.openSheet(x.id); });
   $('#gd', v)?.addEventListener('change', e => { setPref('goalDay', Math.max(1, +e.target.value || 20)); drawHoy(ctx); });

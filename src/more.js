@@ -1,5 +1,5 @@
 import { S, ST, byId, saveBook, saveMeta, newId, addBook, today, fd, coverUrl } from './state.js';
-import { P, setPref, THEMES } from './prefs.js';
+import { P, setPref, THEMES, ACENTOS, MADERAS, LOMOS, FUENTES } from './prefs.js';
 import { $, $$, esc, ic, toast, openSheet, closeSheet } from './ui.js';
 import { openSync, openAdd } from './sheets.js';
 import { syncLabel, syncState, isEnabled, lastSync } from './sync.js';
@@ -12,6 +12,7 @@ import { buscarActualizacion, ofrecerInstalar, versionActual, autoActivo, fijarA
 import { imgShelf, shareImage } from './share.js';
 import { sobrantes, quitarRepetidos } from './importar.js';
 
+import { HOY_CARDS } from './hoy.js';
 let sub = null;
 export const openMore = p => { sub = p; };
 
@@ -128,7 +129,32 @@ const PAGES = {
   apariencia(b, ctx, redraw) {
     b.innerHTML = `<div class="swatches">${THEMES.map(([k, n, s, c]) => `<button data-t="${k}" aria-pressed="${P.theme === k}"><i style="background:${c}"></i>${n}<small>${s}</small></button>`).join('')}</div>
       <div class="card"><h3>Tamaño del texto</h3><div class="sub">Afecta a toda la app, no solo al lector.</div><div class="ctl2"><span>A</span><input id="ts" type="range" min="85" max="135" step="5" value="${P.textScale}" aria-label="Tamaño del texto"><span style="font-size:1.4em">A</span><output id="tso">${P.textScale} %</output></div>
-      <p class="prev">Así se ve un texto de ejemplo: «En un lugar de la Mancha, de cuyo nombre no quiero acordarme».</p></div>`;
+      <p class="prev">Así se ve un texto de ejemplo: «En un lugar de la Mancha, de cuyo nombre no quiero acordarme».</p></div>
+      <div class="card"><h3>Color de acento</h3><div class="sub">Botones, pestañas y detalles.</div><div class="dotrow" id="d-acc">${ACENTOS.map(([c, n]) => c ? `<button data-c="${c}" style="background:${c}" aria-label="${n}" aria-pressed="${P.accent === c}"></button>` : `<button class="t" data-c="" aria-pressed="${!P.accent}">${n}</button>`).join('')}</div></div>
+      <div class="card"><h3>Madera de la estantería</h3><div class="dotrow" id="d-wood">${MADERAS.map(([k, n, c]) => `<button class="t" data-w="${k || ''}" aria-pressed="${(P.wood || null) === k}">${c ? `<i style="display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;background:${c[0]};vertical-align:-1px"></i>` : ''}${n}</button>`).join('')}</div></div>
+      <div class="card"><h3>Estilo de los lomos</h3><div class="dotrow" id="d-spine">${LOMOS.map(([k, n]) => `<button class="t" data-s="${k}" aria-pressed="${P.spine === k}">${n}</button>`).join('')}</div></div>
+      <div class="card"><h3>Letra de los títulos</h3><div class="dotrow" id="d-font">${FUENTES.map(([k, n, f]) => `<button class="t" data-f="${k}" style="font-family:${f}" aria-pressed="${P.titleFont === k}">${n}</button>`).join('')}</div></div>
+      <div class="card"><h3>Densidad</h3><div class="dotrow" id="d-dens"><button class="t" data-d="comoda" aria-pressed="${P.dens !== 'compacta'}">Cómoda</button><button class="t" data-d="compacta" aria-pressed="${P.dens === 'compacta'}">Compacta</button></div></div>
+      <div class="card"><h3>Pantalla Hoy</h3><div class="sub">Cambia el orden de las tarjetas o escóndelas.</div><div class="hoyord" id="d-hoy"></div></div>`;
+    const grp = (id, fn) => $(id, b).addEventListener('click', e => { const x = e.target.closest('button'); if (!x) return; fn(x); redraw(); });
+    grp('#d-acc', x => setPref('accent', x.dataset.c || null));
+    grp('#d-wood', x => setPref('wood', x.dataset.w || null));
+    grp('#d-spine', x => setPref('spine', x.dataset.s));
+    grp('#d-font', x => setPref('titleFont', x.dataset.f));
+    grp('#d-dens', x => setPref('dens', x.dataset.d));
+    const ord = () => { const o = [...(P.hoyOrder || [])]; HOY_CARDS.forEach(([k]) => { if (!o.includes(k)) o.push(k); }); return o.filter(k => HOY_CARDS.some(c => c[0] === k)); };
+    const dibujaHoy = () => {
+      const o = ord(), hide = P.hoyHide || [];
+      $('#d-hoy', b).innerHTML = o.map((k, i) => `<div class="it ${hide.includes(k) ? 'off' : ''}"><b>${HOY_CARDS.find(c => c[0] === k)[1]}</b><button data-u="${i}" aria-label="Subir">↑</button><button data-dn="${i}" aria-label="Bajar">↓</button><button data-h="${k}" aria-label="${hide.includes(k) ? 'Mostrar' : 'Esconder'}">${hide.includes(k) ? '◌' : '●'}</button></div>`).join('');
+    };
+    dibujaHoy();
+    $('#d-hoy', b).addEventListener('click', e => {
+      const x = e.target.closest('button'); if (!x) return; const o = ord();
+      if (x.dataset.u != null && +x.dataset.u > 0) { const i = +x.dataset.u; [o[i - 1], o[i]] = [o[i], o[i - 1]]; setPref('hoyOrder', o); }
+      else if (x.dataset.dn != null && +x.dataset.dn < o.length - 1) { const i = +x.dataset.dn; [o[i + 1], o[i]] = [o[i], o[i + 1]]; setPref('hoyOrder', o); }
+      else if (x.dataset.h) { const h = new Set(P.hoyHide || []); h.has(x.dataset.h) ? h.delete(x.dataset.h) : h.add(x.dataset.h); setPref('hoyHide', [...h]); }
+      dibujaHoy();
+    });
     $$('.swatches button', b).forEach(x => x.onclick = () => { setPref('theme', x.dataset.t); redraw(); });
     $('#ts', b).oninput = e => { setPref('textScale', +e.target.value); $('#tso').textContent = e.target.value + ' %'; };
   },

@@ -9,6 +9,14 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Instalar las versiones nuevas de la propia app -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Lectura en voz alta con la pantalla apagada -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <queries>
+        <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -45,7 +53,20 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" android:mimeType="application/octet-stream" android:pathPattern=".*\\.epub" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
+
+        <service android:name=".LecturaService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <receiver android:name=".LecturaAccionReceiver" android:exported="false" />
+
+        <receiver android:name=".ContinuarWidget" android:exported="false" android:label="Seguir leyendo">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_continuar_info" />
+        </receiver>
+        <receiver android:name=".RachaWidget" android:exported="false" android:label="Racha de lectura">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_racha_info" />
+        </receiver>
 
         <receiver android:name=".RecordatorioReceiver" android:exported="false" />
         <receiver android:name=".InstaladorReceiver" android:exported="false" />

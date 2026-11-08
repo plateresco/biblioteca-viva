@@ -53,8 +53,16 @@ let toastT;
 export function toast(msg) {
   let t = $('#toast');
   if (!t) { t = document.createElement('div'); t.id = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
-  t.textContent = msg; t.classList.add('show');
+  t.textContent = msg; t.style.pointerEvents = ''; t.classList.add('show');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// Aviso con un botón (por ejemplo «Deshacer»); dura más para dar tiempo a tocarlo.
+export function toastAccion(msg, label, fn) {
+  toast(msg); const t = $('#toast'), b = document.createElement('button');
+  b.textContent = label; b.style.cssText = 'margin-left:14px;font-weight:700;color:var(--accent);background:none;border:0;cursor:pointer;font-size:14px;padding:4px 2px';
+  b.onclick = () => { fn(); t.classList.remove('show'); t.style.pointerEvents = ''; };
+  t.appendChild(b); t.style.pointerEvents = 'auto'; clearTimeout(toastT); toastT = setTimeout(() => { t.classList.remove('show'); t.style.pointerEvents = ''; }, 5000);
 }
 
 // Hoja inferior reutilizable (portada, formularios).

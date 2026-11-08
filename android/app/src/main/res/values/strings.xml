@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Mi Biblioteca</string>
+    <string name="w_continuar_desc">El libro que estás leyendo, con su avance</string>
+    <string name="w_racha_desc">Tu racha de lectura y la meta de hoy</string>
+    <string name="sc_continuar">Continuar</string>
+    <string name="sc_continuar_l">Continuar leyendo</string>
+    <string name="sc_agregar">Agregar libro</string>
+    <string name="sc_agregar_l">Agregar un libro</string>
+    <string name="sc_isbn">Escanear ISBN</string>
+    <string name="sc_isbn_l">Escanear el ISBN de un libro</string>
+    <string name="sc_pagina">Escanear página</string>
+    <string name="sc_pagina_l">Escanear una página de un libro</string>
 </resources>

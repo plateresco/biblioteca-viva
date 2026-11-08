@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="continuar" android:enabled="true" android:icon="@drawable/ic_notif"
+        android:shortcutShortLabel="@string/sc_continuar" android:shortcutLongLabel="@string/sc_continuar_l">
+        <intent android:action="com.plateresco.bibliotecaviva.CONTINUAR" android:targetPackage="com.plateresco.bibliotecaviva" android:targetClass="com.plateresco.bibliotecaviva.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="agregar" android:enabled="true" android:icon="@drawable/ic_notif"
+        android:shortcutShortLabel="@string/sc_agregar" android:shortcutLongLabel="@string/sc_agregar_l">
+        <intent android:action="com.plateresco.bibliotecaviva.AGREGAR" android:targetPackage="com.plateresco.bibliotecaviva" android:targetClass="com.plateresco.bibliotecaviva.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="isbn" android:enabled="true" android:icon="@drawable/ic_notif"
+        android:shortcutShortLabel="@string/sc_isbn" android:shortcutLongLabel="@string/sc_isbn_l">
+        <intent android:action="com.plateresco.bibliotecaviva.ESCANEAR" android:targetPackage="com.plateresco.bibliotecaviva" android:targetClass="com.plateresco.bibliotecaviva.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="pagina" android:enabled="true" android:icon="@drawable/ic_notif"
+        android:shortcutShortLabel="@string/sc_pagina" android:shortcutLongLabel="@string/sc_pagina_l">
+        <intent android:action="com.plateresco.bibliotecaviva.PAGINA" android:targetPackage="com.plateresco.bibliotecaviva" android:targetClass="com.plateresco.bibliotecaviva.MainActivity" />
+    </shortcut>
+</shortcuts>

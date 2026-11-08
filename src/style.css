@@ -66,9 +66,9 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
   background-image:
     linear-gradient(100deg,transparent calc(var(--shx) - 12%),rgba(255,255,255,.38) var(--shx),transparent calc(var(--shx) + 12%)),
     var(--noise-a),
-    radial-gradient(circle at 50% calc(100% - 16.5px),transparent 3px,#E3C071 3.2px,#E3C071 4.6px,transparent 4.8px),
-    linear-gradient(#E3C071,#E3C071),linear-gradient(#E3C071,#E3C071),
-    repeating-linear-gradient(90deg,#E8D9A8 0 2px,#8C6B3A 2px 4px),repeating-linear-gradient(90deg,#E8D9A8 0 2px,#8C6B3A 2px 4px),
+    radial-gradient(circle at 50% calc(100% - 16.5px),transparent 3px,var(--g1,#E3C071) 3.2px,var(--g1,#E3C071) 4.6px,transparent 4.8px),
+    linear-gradient(var(--g1,#E3C071),var(--g1,#E3C071)),linear-gradient(var(--g1,#E3C071),var(--g1,#E3C071)),
+    repeating-linear-gradient(90deg,var(--g2,#E8D9A8) 0 2px,var(--g3,#8C6B3A) 2px 4px),repeating-linear-gradient(90deg,var(--g2,#E8D9A8) 0 2px,var(--g3,#8C6B3A) 2px 4px),
     linear-gradient(90deg,rgba(0,0,0,.42),rgba(255,255,255,.16) 14%,rgba(255,255,255,0) 40%,rgba(0,0,0,.05) 62%,rgba(0,0,0,.42)),
     var(--art);
   background-size:100% 100%,90px 90px,100% 100%,100% 2px,100% 2px,100% 5px,100% 5px,100% 100%,auto 100%;

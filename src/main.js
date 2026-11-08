@@ -23,6 +23,7 @@ import { checkReminder } from './reminder.js';
 import { resetSpineCache } from './spine.js';
 import { shrinkImage } from './color.js';
 import { importarEpubs } from './sheets.js';
+import { currentBook } from './hoy.js';
 import { avisarSiHay } from './actualizar.js';
 import { closeSheet } from './ui.js';
 import { closeScene } from './scene.js';
@@ -149,3 +150,11 @@ window.__abrirArchivo = async (url, nombre) => {
   } catch { console.error('abrirArchivo'); }
 };
 if (window.AndroidApp) setTimeout(avisarSiHay, 4000);
+if (window.AndroidApp) import('./widgets.js').then(w => w.iniciarWidgets());
+// Atajos al mantener pulsado el ícono, y botones de los widgets
+window.__atajo = a => {
+  if (a === 'continuar') { const c = currentBook(); if (c?.hasFile) ctx.openReader(c.id); else if (c) ctx.openSheet(c.id); else go('lib'); }
+  else if (a === 'agregar') { go('lib'); import('./sheets.js').then(m => m.openAdd()); }
+  else if (a === 'escanear') { go('lib'); import('./sheets.js').then(m => m.openAdd('isbn')); }
+  else if (a === 'pagina') { go('fr'); setTimeout(() => import('./frases.js').then(m => m.escanearPagina && m.escanearPagina()), 300); }
+};

@@ -56,6 +56,10 @@ public class MainActivity extends Activity {
     static final String INICIO = "https://" + DOMINIO + "/assets/index.html";
     static final int REQ_ARCHIVO = 41, REQ_NOTIF = 42;
 
+    static MainActivity instancia;
+    static final int REQ_FOTO = 44;
+    Uri fotoUri;
+    String pendienteAtajo = null;
     WebView web;
     android.speech.tts.TextToSpeech voz; boolean vozLista = false;
     ValueCallback<Uri[]> chooserCb;
@@ -65,6 +69,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        instancia = this;
         web = new WebView(this);
         web.setBackgroundColor(0xFF16262A);
         setContentView(web);
@@ -102,6 +107,7 @@ public class MainActivity extends Activity {
             }
             @Override public void onPageFinished(WebView v, String url) {
                 paginaLista = true;
+                if (pendienteAtajo != null) { String a = pendienteAtajo; pendienteAtajo = null; atajo(a); }
                 if (pendienteArchivo != null) { String[] p = pendienteArchivo.split("\\|", 2); pendienteArchivo = null; entregarArchivo(p[0], p[1]); }
             }
         });
@@ -133,7 +139,7 @@ public class MainActivity extends Activity {
         manejarIntent(getIntent());
     }
 
-    @Override protected void onDestroy() { try { if (voz != null) { voz.stop(); voz.shutdown(); } } catch (Exception ignored) { } super.onDestroy(); }
+    @Override protected void onDestroy() { if (instancia == this) instancia = null; try { if (voz != null) { voz.stop(); voz.shutdown(); } } catch (Exception ignored) { } super.onDestroy(); }
 
     @Override protected void onNewIntent(Intent i) { super.onNewIntent(i); setIntent(i); manejarIntent(i); }
 
@@ -142,6 +148,16 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == REQ_FOTO) {
+            if (res != RESULT_OK || fotoUri == null) { js("window.__ocrError&&window.__ocrError('Cancelaste la foto.')"); return; }
+            try {
+                com.google.mlkit.vision.common.InputImage img = com.google.mlkit.vision.common.InputImage.fromFilePath(this, fotoUri);
+                com.google.mlkit.vision.text.TextRecognition.getClient(com.google.mlkit.vision.text.latin.TextRecognizerOptions.DEFAULT_OPTIONS).process(img)
+                        .addOnSuccessListener(t -> { String x = t.getText(); if (x == null || x.trim().isEmpty()) js("window.__ocrError&&window.__ocrError('No encontre texto en la foto. Prueba con mas luz y la pagina derecha.')"); else js("window.__ocrTexto&&window.__ocrTexto(" + q(x) + ")"); })
+                        .addOnFailureListener(e -> js("window.__ocrError&&window.__ocrError('No pude leer la pagina.')"));
+            } catch (Exception e) { js("window.__ocrError&&window.__ocrError('No pude abrir la foto.')"); }
+            return;
+        }
         if (req == AuthGoogle.REQ) {
             if (res != RESULT_OK || data == null) { googleError("Cancelaste el inicio de sesion."); return; }
             try {
@@ -179,6 +195,11 @@ public class MainActivity extends Activity {
         if (i == null) return;
         Uri d = i.getData(), st = i.getParcelableExtra(Intent.EXTRA_STREAM);
         String act = i.getAction();
+        if (act != null && act.startsWith("com.plateresco.bibliotecaviva.") && !act.endsWith(".ACC_stop")) {
+            String a = act.substring(act.lastIndexOf('.') + 1).toLowerCase();
+            if (paginaLista) atajo(a); else pendienteAtajo = a;
+            return;
+        }
         Uri archivo = Intent.ACTION_SEND.equals(act) ? st : (Intent.ACTION_VIEW.equals(act) ? d : null);
         if (archivo != null) {
             final Uri f = archivo;
@@ -196,6 +217,9 @@ public class MainActivity extends Activity {
             }).start();
         }
     }
+    // Atajos del icono y botones de los widgets: la web ya sabe que hacer con cada uno.
+    void atajo(String a) { js("setTimeout(function(){window.__atajo&&window.__atajo(" + q(a) + ")},900)"); }
+
     String nombreDe(Uri u) {
         String n = "libro.epub";
         try (Cursor c = getContentResolver().query(u, null, null, null, null)) {
@@ -270,6 +294,41 @@ public class MainActivity extends Activity {
             });
         }
         @JavascriptInterface public void ttsParar() { runOnUiThread(() -> { try { if (voz != null) voz.stop(); } catch (Exception ignored) { } }); }
+        /* Lectura en voz alta con la pantalla apagada: notificacion de reproductor */
+        @JavascriptInterface public void lecturaEstado(final boolean on, final boolean pausa, final String titulo, final String frase) {
+            runOnUiThread(() -> {
+                try {
+                    if (on) {
+                        if (!LecturaService.activo) {
+                            Intent i = new Intent(MainActivity.this, LecturaService.class).putExtra("t", titulo).putExtra("f", frase).putExtra("pausa", pausa);
+                            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
+                            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIF);
+                        } else LecturaService.actualizar(MainActivity.this, titulo, frase, pausa);
+                    } else if (LecturaService.activo) {
+                        stopService(new Intent(MainActivity.this, LecturaService.class));
+                    }
+                } catch (Exception ignored) { }
+            });
+        }
+
+        /* Widgets de la pantalla de inicio */
+        @JavascriptInterface public void widgets(String json) { Widgets.guardar(MainActivity.this, json); }
+
+        /* Escanear una pagina de un libro de papel: foto con la camara y reconocimiento de texto en el telefono */
+        @JavascriptInterface public void escanearPagina() {
+            runOnUiThread(() -> {
+                try {
+                    File dir = new File(getCacheDir(), "capturas"); dir.mkdirs();
+                    File f = new File(dir, "pagina-" + System.currentTimeMillis() + ".jpg");
+                    fotoUri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".fileprovider", f);
+                    Intent i = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE).putExtra(android.provider.MediaStore.EXTRA_OUTPUT, fotoUri)
+                            .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivityForResult(i, REQ_FOTO);
+                } catch (Exception e) { js("window.__ocrError&&window.__ocrError('No pude abrir la camara.')"); }
+            });
+        }
+
         @JavascriptInterface public void abrirExterno(String url) { MainActivity.this.abrirExterno(url); }
 
         /* Escaner de ISBN de Google (no necesita permiso de camara) */

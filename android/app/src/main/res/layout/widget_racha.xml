@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root2"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:gravity="center"
+    android:background="@drawable/widget_fondo">
+    <TextView
+        android:id="@+id/w_racha"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textColor="#EDE6D6" android:textSize="34sp" android:textStyle="bold" android:text="0" />
+    <TextView
+        android:id="@+id/w_racha_l"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textColor="#A9B7B3" android:textSize="11sp" android:text="días seguidos" />
+    <TextView
+        android:id="@+id/w_semana"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="6dp" android:textColor="#62B7AB" android:textSize="12sp" android:text="○ ○ ○ ○ ○ ○ ○" />
+    <TextView
+        android:id="@+id/w_hoy"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:textColor="#EDE6D6" android:textSize="11sp" android:text="0 de 20 págs. hoy" />
+</LinearLayout>

@@ -1,6 +1,7 @@
+import { setStatus } from './state.js';
 import { S, ST, cnt, byId, moveBook, moveToIndex, spineGeom, saveMeta, startManual, arrange, removePiso, reorderPisos, newId, pisoOf } from './state.js';
 import { P, setPref } from './prefs.js';
-import { $, $$, esc, ic, toast, reduce, openSheet, closeSheet } from './ui.js';
+import { $, $$, esc, ic, toast, toastAccion, reduce, openSheet, closeSheet } from './ui.js';
 import { openCover, openAdd, openSync } from './sheets.js';
 import { spineStyle, spineInner, spineStyleClass } from './spine.js';
 import { openScene } from './scene.js';
@@ -114,7 +115,7 @@ export function drawLib(ctx) {
     else openCover(id, { openReader: ctx.openReader });
   };
   $$('.spine, .btile, .lrow', v).forEach(e => { e.onclick = () => open(+e.dataset.id, e); e.ondblclick = () => { if (isWide() && e.classList.contains('spine')) openScene(+e.dataset.id, e, ctx); }; });
-  if (!v._drag) { v._drag = true; setupDrag(v, ctx); setupTip(v); }
+  if (!v._drag) { v._drag = true; setupDrag(v, ctx); setupTip(v); setupSwipe(v); }
   drawDetail(ctx);
 }
 
@@ -231,4 +232,32 @@ function setupDrag(v, ctx) {
     };
     addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
   }
+}
+
+
+/* ---- Deslizar un libro de la lista o de las portadas: a la derecha = Leído, a la izquierda = Por leer (con Deshacer) ---- */
+function setupSwipe(v) {
+  v.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.lrow, .btile'); if (!el || e.pointerType === 'mouse' || e.button > 0) return;
+    const sx = e.clientX, sy = e.clientY, w = el.getBoundingClientRect().width; let on = false, dx = 0;
+    const mv = ev => {
+      dx = ev.clientX - sx; const dy = ev.clientY - sy;
+      if (!on) { if (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.6) { on = true; el.style.transition = 'none'; try { el.setPointerCapture(ev.pointerId); } catch { } } else if (Math.abs(dy) > 12) return end(); else return; }
+      el.style.transform = `translateX(${dx * .85}px)`; el.style.opacity = String(1 - Math.min(.45, Math.abs(dx) / w * .8));
+      el.style.background = dx > 0 ? 'color-mix(in srgb,#2FA66B 30%,transparent)' : 'color-mix(in srgb,#8A9794 30%,transparent)';
+    };
+    const end = async () => {
+      removeEventListener('pointermove', mv); removeEventListener('pointerup', end); removeEventListener('pointercancel', end);
+      if (!on) return;
+      el.addEventListener('click', ev => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });   // que el gesto no abra el libro
+      const b = byId(+el.dataset.id), hecho = Math.abs(dx) > Math.min(110, w * .35);
+      el.style.transition = 'transform .2s,opacity .2s,background .2s'; el.style.transform = ''; el.style.opacity = ''; el.style.background = '';
+      if (!hecho || !b) return;
+      const antes = { s: b.s, st: b.st, en: b.en, r: b.r, progress: b.progress, cfi: b.cfi }, nuevo = dx > 0 ? 'leido' : 'porleer';
+      if (antes.s === nuevo) return toast(dx > 0 ? 'Ya estaba como leído' : 'Ya estaba en «Por leer»');
+      haptic('exito'); await setStatus(b, nuevo);
+      toastAccion(nuevo === 'leido' ? `«${b.t}» marcado como leído` : `«${b.t}» pasó a «Por leer»`, 'Deshacer', async () => { Object.assign(b, antes); const { saveBook } = await import('./state.js'); await saveBook(b); });
+    };
+    addEventListener('pointermove', mv); addEventListener('pointerup', end); addEventListener('pointercancel', end);
+  });
 }
