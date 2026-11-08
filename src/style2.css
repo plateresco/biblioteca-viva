@@ -341,3 +341,21 @@ body{font-size:calc(15px * var(--ts))}
 .bk .f-sp .spine.foil .ttl{background:linear-gradient(90deg,#F6E6AE,#D9B45A 45%,#B98C34);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 1px 0 rgba(0,0,0,.55))}
 #sptip{position:fixed;z-index:75;pointer-events:none;background:rgba(10,18,20,.96);color:#F3ECDB;font:600 11px/1.3 var(--f-body);padding:5px 9px;border-radius:8px;white-space:nowrap;opacity:0;transition:opacity .15s;border:1px solid rgba(255,255,255,.12);box-shadow:0 4px 12px rgba(0,0,0,.45)}
 #sptip.on{opacity:1}
+
+/* Zonas táctiles más grandes en el teléfono (sin cambiar cómo se ven) */
+@media (pointer:coarse){
+  #v-fr button[data-sh],#v-fr button[data-go],#v-fr button[data-del],#v-fr button[data-cp],
+  .tb2 .mini-seg button,#v-lib .tb2 button{position:relative}
+  #v-fr button[data-sh]::before,#v-fr button[data-go]::before,#v-fr button[data-del]::before,#v-fr button[data-cp]::before,
+  .tb2 .mini-seg button::before,#v-lib .tb2 button::before{content:"";position:absolute;inset:-9px -7px}
+}
+
+/* Sensación de app: sin retardo al tocar, sin rebote de recarga, sin selección accidental en los controles */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{overscroll-behavior:none}
+button,a,[role=button],.tab,.spine,.btile,.lrow,.chip,select,summary{touch-action:manipulation}
+button,.tab,.spine,.btile,.chip,.rail,.tabs,.apphead{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text}
+:focus-visible{outline:2px solid var(--r-accent,#5cc8b8);outline-offset:2px}
+button:focus:not(:focus-visible){outline:none}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
