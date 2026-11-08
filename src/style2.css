@@ -17,7 +17,7 @@ body{font-size:calc(15px * var(--ts))}
 .tabs .logo,.tabs .grow,.tabs .syncchip{display:none}
 #detail{display:none;grid-area:detail;min-width:0;overflow:auto;background:color-mix(in srgb,var(--r-bg) 94%,#000);color:var(--r-ink);border-left:1px solid var(--r-line)}
 .view>*{max-width:980px;margin-left:auto;margin-right:auto;width:100%}
-#v-lib>*{max-width:none}
+#v-lib>*{max-width:none;width:auto}
 @media (min-width:640px){
   #app{grid-template-columns:78px minmax(0,1fr);grid-template-rows:minmax(0,1fr);grid-template-areas:"nav screen"}
   .tabs{grid-template-columns:1fr;grid-auto-rows:62px;align-content:start;border-top:0;border-right:1px solid var(--line);padding:14px 0;gap:2px}
@@ -333,3 +333,12 @@ body{font-size:calc(15px * var(--ts))}
   #reader .panel{position:static;z-index:auto;border-left:1px solid rgba(127,127,127,.3);padding:12px 4px 24px 16px}
   #reader .panel[hidden]{display:none}
 }
+
+/* ===== Título grabado directo en el lomo (sin marco) ===== */
+.spine .ttl{position:absolute;left:50%;transform:translateX(-50%);writing-mode:vertical-rl;display:flex;flex-direction:column;justify-content:center;align-items:center;white-space:nowrap;z-index:2;pointer-events:none;line-height:1.08;text-align:center}
+.spine .ttl span{display:block}
+.spine .scrim{position:absolute;left:50%;transform:translateX(-50%);pointer-events:none;z-index:1;border-radius:50%/20px;filter:blur(3px)}
+.spine .aut{position:absolute;left:50%;transform:translateX(-50%);writing-mode:vertical-rl;white-space:nowrap;z-index:2;pointer-events:none;text-transform:uppercase;letter-spacing:.14em;font:600 8px/1 var(--f-body);display:flex;align-items:center;justify-content:center}
+.fin-foil{background:linear-gradient(90deg,#F6E6AE,#D9B45A 45%,#B98C34);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 1px 0 rgba(0,0,0,.55)) drop-shadow(0 0 4px rgba(233,208,138,.18))}
+.fin-ink{color:#2A1E10;text-shadow:0 1px 0 rgba(255,255,255,.28)}
+html[data-theme="contraste"] .fin-foil{background:none;color:#FFE066;filter:drop-shadow(0 1px 0 #000)}

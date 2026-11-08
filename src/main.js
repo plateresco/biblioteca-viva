@@ -15,6 +15,7 @@ import { openScene, sceneOpen } from './scene.js';
 import { openPalette, setPaletteCtx } from './palette.js';
 import { isEnabled, hasToken, isSyncing, connect, syncNow, syncLabel, onSyncStatus } from './sync.js';
 import { checkReminder } from './reminder.js';
+import { resetSpineCache } from './spine.js';
 
 registerSW({ immediate: true });
 
@@ -82,4 +83,9 @@ async function autoStart() {
   if (!isEnabled() || !navigator.onLine) return;
   try { await connect(false); await syncNow(); } catch { /* sin sesión: se retoma al tocar la nube */ }
 }
-load().then(() => { if (!S.books.length) S.ui.tab = 'lib'; shell(); go(S.ui.tab); autoStart(); checkReminder(ctx); });
+load().then(() => {
+  if (!S.books.length) S.ui.tab = 'lib'; shell(); go(S.ui.tab); autoStart(); checkReminder(ctx);
+  // Los títulos de los lomos se miden con la tipografía real: al terminar de cargar las fuentes se vuelven a calcular.
+  Promise.all(['600 12px Figtree', '700 12px Figtree', '400 12px "Young Serif"', 'italic 500 12px Newsreader'].map(f => document.fonts.load(f).catch(() => { })))
+    .then(() => { resetSpineCache(); if (!sceneOpen()) redraw(); });
+});
