@@ -15,6 +15,22 @@ export const lastSync = () => +LS('bv-last-sync') || 0;
 export const disable = () => { setLS('bv-sync-on', null); token = null; };
 
 let token = null, exp = 0, syncing = false;
+let status = { state: 'idle', msg: '' };
+const watchers = new Set();
+export const onSyncStatus = f => (watchers.add(f), () => watchers.delete(f));
+function setStatus(state, msg = '') { status = { state, msg }; watchers.forEach(f => f()); }
+const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+export function syncLabel() {
+  if (!isEnabled()) return 'Sin sincronizar';
+  if (!navigator.onLine) return 'Sin conexión';
+  if (status.state === 'syncing') return status.msg || 'Sincronizando…';
+  if (status.state === 'auth') return 'Volver a conectar';
+  if (status.state === 'error') return 'No se pudo sincronizar';
+  const l = lastSync(); return l ? 'Al día · ' + ago(l) : 'Conectado';
+}
+export const syncState = () => status.state;
+addEventListener('online', () => setStatus(status.state, status.msg));
+addEventListener('offline', () => setStatus(status.state, status.msg));
 export const hasToken = () => !!token && Date.now() < exp - 30000;
 export const isSyncing = () => syncing;
 
@@ -67,7 +83,7 @@ const remove = id => api(`/files/${id}`, { method: 'DELETE' }).catch(() => { });
 export async function syncNow(onStatus = () => { }) {
   if (syncing) return;
   if (!hasToken()) throw new Error('Primero conecta con Google.');
-  syncing = true;
+  syncing = true; setStatus('syncing', 'Sincronizando…');
   try {
     onStatus('Revisando Google Drive…');
     await load();
@@ -104,9 +120,17 @@ export async function syncNow(onStatus = () => { }) {
     for (const rl of remote.log || []) {
       const b = byUid.get(rl.bookUid); if (!b) continue;
       const l = S.log.find(x => x.bookId === b.id && x.date === rl.date);
-      if (!l) await db.put('log', { bookId: b.id, date: rl.date, pages: rl.pages });
-      else if (rl.pages > l.pages) { l.pages = rl.pages; await db.put('log', l); }
+      if (!l) await db.put('log', { bookId: b.id, date: rl.date, pages: rl.pages, secs: rl.secs, hours: rl.hours });
+      else {
+        let ch = false;
+        if (rl.pages > l.pages) { l.pages = rl.pages; ch = true; }
+        if ((rl.secs || 0) > (l.secs || 0)) { l.secs = rl.secs; ch = true; }
+        for (const [h, v] of Object.entries(rl.hours || {})) { l.hours = l.hours || {}; if (v > (l.hours[h] || 0)) { l.hours[h] = v; ch = true; } }
+        if (ch) await db.put('log', l);
+      }
     }
+    // Pisos, colecciones y deseos: gana el cambio más reciente
+    if (remote.meta && (remote.meta.upd || 0) > (S.meta.upd || 0)) { S.meta = { pisos: [], cols: [], wish: [], mode: 'auto', ...remote.meta }; await db.put('meta', { key: 'extra', v: S.meta }); }
     await load();
 
     // 4) Subir el resultado
@@ -115,7 +139,8 @@ export async function syncNow(onStatus = () => { }) {
       v: 1, savedAt: Date.now(),
       books: S.books.map(({ cover, locs, id, ...r }) => r),
       notes: S.notes.map(({ id, ...r }) => r),
-      log: S.log.map(l => ({ bookUid: byId(l.bookId)?.uid, date: l.date, pages: l.pages })).filter(l => l.bookUid),
+      log: S.log.map(l => ({ bookUid: byId(l.bookId)?.uid, date: l.date, pages: l.pages, secs: l.secs, hours: l.hours })).filter(l => l.bookUid),
+      meta: S.meta,
       tomb: [...tomb.values()],
     };
     await upload('library.json', new Blob([JSON.stringify(out)], { type: 'application/json' }), lib?.id);
@@ -134,8 +159,9 @@ export async function syncNow(onStatus = () => { }) {
     for (const t of tomb.values()) for (const n of ['epub-', 'cover-']) { const f = byName.get(n + t.uid); if (f) await remove(f.id); }
 
     await load();
-    setLS('bv-last-sync', String(Date.now()));
-  } finally { syncing = false; }
+    setLS('bv-last-sync', String(Date.now())); setStatus('ok');
+  } catch (e) { setStatus(/401|expir|conecta/i.test(String(e.message)) || !token ? 'auth' : 'error', e.message); throw e; }
+  finally { syncing = false; }
   emit();
 }
 

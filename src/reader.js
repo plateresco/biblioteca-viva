@@ -1,11 +1,11 @@
 import ePub from 'epubjs';
-import { S, byId, getFile, setStatus, persistBook, addPages, saveNote, emit } from './state.js';
+import { S, byId, getFile, setStatus, persistBook, addPages, addTime, saveNote, removeNote, emit } from './state.js';
 import { $, $$, esc, ic, toast } from './ui.js';
 import { ensureEpub } from './sync.js';
 
 const TH = { paper: ['#F1ECE0', '#26221B'], sepia: ['#E6D8B8', '#3B2E17'], night: ['#12181B', '#D7DBD6'] };
-const prefs = (() => { try { return JSON.parse(localStorage.getItem('bv-prefs')) || {}; } catch { return {}; } })();
-const setPref = (k, v) => { prefs[k] = v; try { localStorage.setItem('bv-prefs', JSON.stringify(prefs)); } catch { } };
+const prefs = (() => { try { return JSON.parse(localStorage.getItem('bv-rprefs')) || {}; } catch { return {}; } })();
+const setPref = (k, v) => { prefs[k] = v; try { localStorage.setItem('bv-rprefs', JSON.stringify(prefs)); } catch { } };
 
 let cur = null;
 export function closeReader() { if (cur) cur.close(); }
@@ -27,6 +27,7 @@ export async function openReader(id, cfiTarget) {
       <div class="ti"><b>${esc(b.t)}</b><span id="rLoc">Abriendo…</span></div>
       <button class="iconbtn" id="rToc" aria-label="Capítulos">${ic('menu')}</button>
       <button class="iconbtn" id="rSearch" aria-label="Buscar en el libro">${ic('search')}</button>
+      <button class="iconbtn" id="rNotes" aria-label="Subrayados">${ic('quote')}</button>
       <button class="iconbtn" id="rOpt" aria-label="Letra y voz">${ic('aa')}</button>
     </div>
     <div class="vwrap"><div id="viewer"></div><div id="panel" class="panel" hidden></div></div>
@@ -43,7 +44,7 @@ export async function openReader(id, cfiTarget) {
 
   const book = ePub(await file.arrayBuffer());
   await book.ready;
-  const rendition = book.renderTo($('#viewer', root), { width: '100%', height: '100%', flow: 'paginated', spread: 'none', allowScriptedContent: false });
+  const rendition = book.renderTo($('#viewer', root), { width: '100%', height: '100%', flow: 'paginated', spread: 'auto', minSpreadWidth: 900, allowScriptedContent: false });
   for (const [k, [bg, fg]] of Object.entries(TH)) {
     rendition.themes.register(k, {
       body: { background: `${bg} !important`, color: `${fg} !important`, 'line-height': '1.6 !important' },
@@ -93,7 +94,7 @@ export async function openReader(id, cfiTarget) {
   const go = dir => { stopTTS(); dir > 0 ? rendition.next() : rendition.prev(); hideSave(); };
   $('#rPrev', root).onclick = () => go(-1);
   $('#rNext', root).onclick = () => go(1);
-  const onKey = e => { if (e.key === 'ArrowRight' || e.key === 'PageDown') go(1); if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1); if (e.key === 'Escape') { if (!$('#panel', root).hidden) hidePanel(); else close(); } };
+  const onKey = e => { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return; if (e.key === 'h' || e.key === 'H') { if (selCfi && bar) saveHL(lastColor); } if (e.key === '/') { e.preventDefault?.(); $('#rSearch', root).click(); } if (e.key === 'ArrowRight' || e.key === 'PageDown') go(1); if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1); if (e.key === 'Escape') { if (!$('#panel', root).hidden) hidePanel(); else close(); } };
   rendition.on('keyup', onKey); document.addEventListener('keyup', onKey);
   let tx = 0, ty = 0;
   rendition.on('touchstart', e => { tx = e.changedTouches[0].screenX; ty = e.changedTouches[0].screenY; });
@@ -106,8 +107,9 @@ export async function openReader(id, cfiTarget) {
 
   /* ----- paneles ----- */
   const panel = $('#panel', root);
-  const showPanel = html => { panel.innerHTML = html; panel.hidden = false; };
-  const hidePanel = () => { panel.hidden = true; panel.innerHTML = ''; };
+  const dock = () => { root.classList.toggle('pan', !panel.hidden); if (innerWidth >= 1000) setTimeout(() => { try { rendition.resize(); } catch { } }, 90); };
+  const showPanel = html => { panel.innerHTML = html; panel.hidden = false; dock(); };
+  const hidePanel = () => { panel.hidden = true; panel.innerHTML = ''; dock(); };
   const togglePanel = (name, html, after) => { if (!panel.hidden && panel.dataset.k === name) return hidePanel(); panel.dataset.k = name; showPanel(html); after && after(); };
 
   $('#rToc', root).onclick = () => togglePanel('toc', `<h3>Capítulos</h3><div class="toc" id="tocl">Cargando…</div>`, async () => {
@@ -155,24 +157,36 @@ export async function openReader(id, cfiTarget) {
     $('#rate', root).onchange = e => setPref('rate', +e.target.value);
   });
 
-  /* ----- guardar frases ----- */
-  let bar = null, barT;
+  /* ----- subrayados de colores (cada uno queda también como frase guardada) ----- */
+  const COL = { amarillo: '#F2C94C', verde: '#7BC47F', azul: '#7FB2F0', rosa: '#F29AB8' };
+  let lastColor = prefs.hl || 'amarillo', bar = null, barT, selText = '', selCfi = '', selWin = null;
   const hideSave = () => { bar && bar.remove(); bar = null; clearTimeout(barT); };
+  const paint = (cfi, color) => { try { rendition.annotations.highlight(cfi, {}, () => { }, 'hl-' + color, { fill: COL[color] || COL.amarillo, 'fill-opacity': '.45', 'mix-blend-mode': 'multiply' }); } catch { } };
+  async function saveHL(color) {
+    if (!selCfi) return;
+    setPref('hl', color); lastColor = color;
+    await saveNote({ bookId: b.id, title: `${b.t} · ${b.a}`, text: selText.slice(0, 600), cfi: selCfi, color, createdAt: Date.now() });
+    paint(selCfi, color); try { selWin?.getSelection().removeAllRanges(); } catch { }
+    selCfi = ''; hideSave(); toast('Subrayado guardado en tus frases'); if (panel.dataset.k === 'notes' && !panel.hidden) $('#rNotes', root).click(), $('#rNotes', root).click();
+  }
   rendition.on('selected', (cfiRange, contents) => {
     const text = (contents.window.getSelection().toString() || '').replace(/\s+/g, ' ').trim();
-    if (text.length < 8) return;
-    hideSave();
-    bar = document.createElement('button'); bar.className = 'savebar'; bar.innerHTML = `${ic('quote')}Guardar frase`;
+    if (text.length < 3) return;
+    selText = text; selCfi = cfiRange; selWin = contents.window; hideSave();
+    bar = document.createElement('div'); bar.className = 'savebar';
+    bar.innerHTML = `<span>Subrayar</span>${Object.keys(COL).map(c => `<button class="hdotb" data-c="${c}" style="background:${COL[c]}" aria-label="Subrayar en ${c}"></button>`).join('')}`;
     $('.vwrap', root).appendChild(bar);
-    bar.onclick = async () => {
-      await saveNote({ bookId: b.id, title: `${b.t} · ${b.a}`, text: text.slice(0, 600), cfi: cfiRange, createdAt: Date.now() });
-      rendition.annotations.highlight(cfiRange, {}, () => { }, 'hl-note', { fill: '#F2C94C', 'fill-opacity': '.4' });
-      contents.window.getSelection().removeAllRanges(); hideSave(); toast('Frase guardada');
-    };
-    barT = setTimeout(hideSave, 9000);
+    bar.onclick = e => { const c = e.target.closest('[data-c]'); if (c) saveHL(c.dataset.c); };
+    barT = setTimeout(hideSave, 10000);
   });
-  rendition.hooks.content.register(() => { // vuelve a marcar las frases guardadas de este libro
-    S.notes.filter(n => n.bookId === b.id && n.cfi).forEach(n => { try { rendition.annotations.highlight(n.cfi, {}, () => { }, 'hl-note', { fill: '#F2C94C', 'fill-opacity': '.4' }); } catch { } });
+  rendition.hooks.content.register(() => { // vuelve a marcar los subrayados de este libro, cada uno con su color
+    S.notes.filter(n => n.bookId === b.id && n.cfi).forEach(n => paint(n.cfi, n.color || 'amarillo'));
+  });
+  $('#rNotes', root).onclick = () => togglePanel('notes', `<h3>Subrayados</h3><div id="nl"></div>`, () => {
+    const mine = S.notes.filter(n => n.bookId === b.id).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0));
+    $('#nl', root).innerHTML = mine.length ? mine.map(n => `<div class="hit nt"><button data-g="${n.id}" style="text-align:left;flex:1"><i class="ndot" style="background:${COL[n.color] || COL.amarillo}"></i>${esc(n.text.slice(0, 140))}${n.text.length > 140 ? '…' : ''}</button><button data-x="${n.id}" aria-label="Quitar">×</button></div>`).join('') : '<div class="small">Aún no hay subrayados. Selecciona un texto y elige un color.</div>';
+    $$('[data-g]', root).forEach(x => x.onclick = () => { const n = S.notes.find(z => z.id === +x.dataset.g); if (n?.cfi) { stopTTS(); rendition.display(n.cfi); if (innerWidth < 1000) hidePanel(); } });
+    $$('[data-x]', root).forEach(x => x.onclick = async () => { const n = S.notes.find(z => z.id === +x.dataset.x); if (n?.cfi) { try { rendition.annotations.remove(n.cfi, 'highlight'); } catch { } } await removeNote(+x.dataset.x); x.closest('.nt').remove(); });
   });
 
   /* ----- leer en voz alta (voz del propio dispositivo, gratis y sin conexión) ----- */
@@ -222,7 +236,10 @@ export async function openReader(id, cfiTarget) {
   };
   speechSynthesis?.getVoices();
 
+  let acc = 0, flushed = 0;
+  const timeT = setInterval(() => { if (document.visibilityState === 'visible' && document.hasFocus()) { acc += 5; if (acc - flushed >= 20) { addTime(b.id, acc - flushed); flushed = acc; } } }, 5000);
   function close() {
+    clearInterval(timeT); if (acc > flushed) addTime(b.id, acc - flushed);
     stopTTS(); hideSave(); clearTimeout(saveT); persistBook(b);
     document.removeEventListener('keyup', onKey);
     try { book.destroy(); } catch { }

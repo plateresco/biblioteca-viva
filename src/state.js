@@ -9,7 +9,7 @@ export const ST = {
 export const FORMATS = ['EPUB', 'Papel', 'Audio', 'Otro'];
 export const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-export const S = { books: [], log: [], notes: [], tomb: [], ui: { tab: 'lib', filter: 'todos', reorder: false, pick: null, listTab: 'leyendo', statsMode: 'mes', qi: Math.floor(Date.now() / 864e5) } };
+export const S = { books: [], log: [], notes: [], tomb: [], meta: { pisos: [], cols: [], wish: [], mode: 'auto', upd: 0 }, ui: { tab: 'hoy', filter: 'todos', col: null, reorder: false, pick: null, sel: null, statsMode: 'mes', qi: Math.floor(Date.now() / 864e5) } };
 
 const listeners = new Set();
 export const onChange = fn => (listeners.add(fn), () => listeners.delete(fn));
@@ -25,6 +25,7 @@ export async function load() {
   S.log = await db.all('log');
   S.notes = await db.all('notes');
   S.tomb = await db.all('tomb');
+  const m = await db.get('meta', 'extra'); if (m) S.meta = { pisos: [], cols: [], wish: [], mode: 'auto', upd: 0, ...m.v };
   // Identificador estable para reconocer el mismo libro en otro dispositivo
   for (const b of S.books) if (!b.uid) { b.uid = newUid(); b.upd = b.upd || Date.now(); await db.put('books', b); }
   for (const n of S.notes) if (!n.uid) { n.uid = newUid(); n.bookUid = S.books.find(b => b.id === n.bookId)?.uid; await db.put('notes', n); }
@@ -117,4 +118,45 @@ export async function moveToIndex(id, idx) {
   S.books.splice(Math.max(0, Math.min(idx, S.books.length)), 0, m);
   for (let i = 0; i < S.books.length; i++) if (S.books[i].order !== i + 1) { S.books[i].order = i + 1; S.books[i].upd = Date.now(); await db.put('books', S.books[i]); }
   emit();
+}
+
+
+/* ---------- Datos extra: pisos, colecciones y deseos (se guardan juntos y se sincronizan) ---------- */
+export const newId = () => Math.random().toString(36).slice(2, 9);
+export async function saveMeta() { S.meta.upd = Date.now(); await db.put('meta', { key: 'extra', v: S.meta }); emit(); }
+export const pisoOf = id => S.meta.pisos.find(p => p.id === id);
+
+// Pasa de pisos automáticos a manuales: cada fila actual se convierte en un piso.
+export async function startManual(rows) {
+  S.meta.pisos = rows.map((r, i) => ({ id: newId(), n: 'Piso ' + (i + 1), h: 'normal', o: '' }));
+  rows.forEach((r, i) => r.forEach(b => { b.piso = S.meta.pisos[i].id; }));
+  S.meta.mode = 'manual';
+  for (const b of S.books) await persistBook(b);
+  await saveMeta();
+}
+// Guarda el orden de los libros y su piso a partir de lo que se ve en pantalla.
+export async function arrange(plan) {        // plan = [{ pisoId, ids: [bookId...] }] en el orden visual
+  const order = [];
+  for (const g of plan) for (const id of g.ids) { const b = byId(id); if (b) { b.piso = g.pisoId; order.push(b); } }
+  const rest = S.books.filter(b => !order.includes(b));
+  S.books = order.concat(rest);
+  for (let i = 0; i < S.books.length; i++) { S.books[i].order = i + 1; await persistBook(S.books[i]); }
+  emit();
+}
+export async function reorderPisos(ids) { S.meta.pisos = ids.map(id => pisoOf(id)).filter(Boolean); await saveMeta(); }
+export async function removePiso(id) {
+  const i = S.meta.pisos.findIndex(p => p.id === id), dest = S.meta.pisos[i > 0 ? i - 1 : 1];
+  if (!dest) return;
+  for (const b of S.books) if (b.piso === id) { b.piso = dest.id; await persistBook(b); }
+  S.meta.pisos.splice(i, 1); await saveMeta();
+}
+
+// Tiempo de lectura: segundos por día y por hora del día (alimenta "¿A qué hora lees?").
+export async function addTime(bookId, secs) {
+  if (secs <= 0) return;
+  const d = today(), h = new Date().getHours();
+  let e = S.log.find(l => l.bookId === bookId && l.date === d);
+  if (!e) { e = { bookId, date: d, pages: 0 }; S.log.push(e); }
+  e.secs = (e.secs || 0) + secs; e.hours = e.hours || {}; e.hours[h] = (e.hours[h] || 0) + secs;
+  const id = await db.put('log', e); if (!e.id) e.id = id;
 }
