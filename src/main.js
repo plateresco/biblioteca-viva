@@ -114,6 +114,21 @@ load().then(() => {
   idle(slim);
 });
 
+// ---- Registro de errores (para el Diagnóstico de Más): se guardan los últimos 40 ----
+(function () {
+  const guardar = (tipo, msg, donde) => {
+    try {
+      const l = JSON.parse(localStorage.getItem('bv-errs') || '[]');
+      l.push({ t: Date.now(), tipo, msg: String(msg).slice(0, 300), donde: String(donde || '').slice(0, 120) });
+      localStorage.setItem('bv-errs', JSON.stringify(l.slice(-40)));
+    } catch { }
+  };
+  addEventListener('error', e => guardar('error', e.message, (e.filename || '').split('/').pop() + ':' + e.lineno));
+  addEventListener('unhandledrejection', e => guardar('promesa', e.reason && (e.reason.message || e.reason), e.reason && e.reason.stack && e.reason.stack.split('\n')[1]));
+})();
+// En la app no hay menú de «copiar imagen / abrir enlace» al mantener pulsado (estorba al arrastrar libros).
+if (window.AndroidApp) addEventListener('contextmenu', e => { if (!e.target.closest('input,textarea,[contenteditable]')) e.preventDefault(); });
+
 // ---- Dentro de la app de Android ----
 // Botón Atrás: cierra primero lo que esté abierto (búsqueda, hoja, escena, lector); después vuelve a Hoy; si ya está en Hoy, la app pasa a segundo plano.
 window.__atras = () => {

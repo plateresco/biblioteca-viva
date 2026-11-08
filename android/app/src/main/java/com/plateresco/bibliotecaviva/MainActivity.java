@@ -57,6 +57,7 @@ public class MainActivity extends Activity {
     static final int REQ_ARCHIVO = 41, REQ_NOTIF = 42;
 
     WebView web;
+    android.speech.tts.TextToSpeech voz; boolean vozLista = false;
     ValueCallback<Uri[]> chooserCb;
     boolean paginaLista = false;
     String pendienteArchivo = null;   // "url|nombre" de un EPUB recibido antes de que la web terminara de cargar
@@ -116,10 +117,23 @@ public class MainActivity extends Activity {
                 catch (Exception e) { chooserCb = null; return false; }
             }
         });
+        try {
+            voz = new android.speech.tts.TextToSpeech(this, st -> {
+                vozLista = st == android.speech.tts.TextToSpeech.SUCCESS;
+                if (vozLista) voz.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener() {
+                    @Override public void onStart(String id) { }
+                    @Override public void onDone(String id) { js("window.__ttsFin&&window.__ttsFin(" + q(id) + ",1)"); }
+                    @Override public void onError(String id) { js("window.__ttsFin&&window.__ttsFin(" + q(id) + ",0)"); }
+                    @Override public void onStop(String id, boolean interrumpido) { js("window.__ttsFin&&window.__ttsFin(" + q(id) + ",2)"); }
+                });
+            });
+        } catch (Exception e) { voz = null; }
         web.addJavascriptInterface(new Puente(), "AndroidApp");
         web.loadUrl(INICIO);
         manejarIntent(getIntent());
     }
+
+    @Override protected void onDestroy() { try { if (voz != null) { voz.stop(); voz.shutdown(); } } catch (Exception ignored) { } super.onDestroy(); }
 
     @Override protected void onNewIntent(Intent i) { super.onNewIntent(i); setIntent(i); manejarIntent(i); }
 
@@ -228,6 +242,34 @@ public class MainActivity extends Activity {
                 } catch (Exception ignored) { }
             });
         }
+        /* Voz de Android (Google): mucho mas natural que la del navegador y funciona con las voces de alta calidad */
+        @JavascriptInterface public boolean ttsDisponible() { return voz != null && vozLista; }
+        @JavascriptInterface public String ttsVoces() {
+            try {
+                org.json.JSONArray a = new org.json.JSONArray();
+                if (voz == null || !vozLista || voz.getVoices() == null) return "[]";
+                for (android.speech.tts.Voice v : voz.getVoices()) {
+                    if (!"es".equals(v.getLocale().getLanguage())) continue;
+                    JSONObject o = new JSONObject();
+                    o.put("name", v.getName()); o.put("lang", v.getLocale().toLanguageTag());
+                    o.put("net", v.isNetworkConnectionRequired()); o.put("q", v.getQuality());
+                    a.put(o);
+                }
+                return a.toString();
+            } catch (Exception e) { return "[]"; }
+        }
+        @JavascriptInterface public void ttsHablar(final String id, final String texto, final String vozNombre, final float velocidad) {
+            runOnUiThread(() -> {
+                try {
+                    if (voz == null || !vozLista) { js("window.__ttsFin&&window.__ttsFin(" + q(id) + ",0)"); return; }
+                    if (vozNombre != null && !vozNombre.isEmpty()) for (android.speech.tts.Voice v : voz.getVoices()) if (v.getName().equals(vozNombre)) { voz.setVoice(v); break; }
+                    voz.setSpeechRate(velocidad > 0 ? velocidad : 1f);
+                    String t = texto.length() > 3900 ? texto.substring(0, 3900) : texto;
+                    voz.speak(t, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, id);
+                } catch (Exception e) { js("window.__ttsFin&&window.__ttsFin(" + q(id) + ",0)"); }
+            });
+        }
+        @JavascriptInterface public void ttsParar() { runOnUiThread(() -> { try { if (voz != null) voz.stop(); } catch (Exception ignored) { } }); }
         @JavascriptInterface public void abrirExterno(String url) { MainActivity.this.abrirExterno(url); }
 
         /* Escaner de ISBN de Google (no necesita permiso de camara) */

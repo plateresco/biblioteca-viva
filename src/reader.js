@@ -144,11 +144,19 @@ export async function openReader(id, cfiTarget) {
     };
   });
 
-  const voices = () => (speechSynthesis.getVoices() || []).filter(v => v.lang.toLowerCase().startsWith('es'));
+  // Voz: en la app de Android se usa la voz nativa (Google); en el navegador, la del propio navegador.
+  const AN = window.AndroidApp, nativa = !!(AN && AN.ttsDisponible && AN.ttsDisponible());
+  const hayVoz = () => nativa || ('speechSynthesis' in window);
+  const voices = () => {
+    try {
+      if (nativa) return JSON.parse(AN.ttsVoces() || '[]').sort((a, b) => (b.net - a.net) || (b.q - a.q) || a.name.localeCompare(b.name));
+      return (speechSynthesis.getVoices() || []).filter(v => v.lang.toLowerCase().startsWith('es')).map(v => ({ name: v.name, lang: v.lang, net: false }));
+    } catch { return []; }
+  };
   $('#rOpt', root).onclick = () => togglePanel('opt', `<h3>Letra y voz</h3><div class="opts">
     <div><div class="small" style="margin-bottom:6px">Fondo</div><div class="seg">${[['paper', 'Papel'], ['sepia', 'Sepia'], ['night', 'Noche']].map(([k, n]) => `<button data-th="${k}" aria-selected="${root.dataset.theme === k}">${n}</button>`).join('')}</div></div>
     <div><div class="small" style="margin-bottom:6px">Tamaño de letra</div><div class="row"><button class="btn ghost" id="fm" style="color:inherit">A −</button><button class="btn ghost" id="fp" style="color:inherit">A +</button><span class="small" id="fv" style="align-self:center">${fsz} %</span></div></div>
-    <label>Voz para leer en voz alta<select id="vsel">${voices().map(v => `<option value="${esc(v.name)}" ${v.name === prefs.voice ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('') || '<option value="">Voz predeterminada del dispositivo</option>'}</select></label>
+    <label>Voz para leer en voz alta<select id="vsel">${voices().map(v => `<option value="${esc(v.name)}" ${v.name === prefs.voice ? 'selected' : ''}>${esc(nativa ? v.name.replace(/-/g, ' ') : v.name)} (${esc(v.lang)})${v.net ? ' · alta calidad' : ''}</option>`).join('') || '<option value="">Voz predeterminada del dispositivo</option>'}</select></label>
     <label>Velocidad<select id="rate">${[0.8, 1, 1.2, 1.5, 1.8].map(r => `<option value="${r}" ${(prefs.rate || 1) === r ? 'selected' : ''}>${r}x</option>`).join('')}</select></label></div>`, () => {
     $$('[data-th]', root).forEach(b2 => b2.onclick = () => { applyTheme(b2.dataset.th); $$('[data-th]', root).forEach(x => x.setAttribute('aria-selected', x === b2)); });
     $('#fm', root).onclick = () => { fsz = Math.max(70, fsz - 10); setPref('fsz', fsz); applySize(); $('#fv', root).textContent = fsz + ' %'; };
@@ -199,11 +207,18 @@ export async function openReader(id, cfiTarget) {
       return r.toString();
     } catch { return c.document.body.innerText || ''; }
   }
+  let ttsId = 0;
   function speak(text, token) {
     return new Promise(res => {
+      if (nativa) {
+        const id = String(++ttsId);
+        window.__ttsFin = (i, st) => { if (i === id) { tts.cortada = st === 2; res(token === tts.token); } };
+        const v = voices(), pick = v.find(x => x.name === prefs.voice) || v[0];
+        AN.ttsHablar(id, text, pick ? pick.name : '', prefs.rate || 1); return;
+      }
       const u = new SpeechSynthesisUtterance(text);
       const v = voices(); const pick = v.find(x => x.name === prefs.voice) || v[0];
-      if (pick) { u.voice = pick; u.lang = pick.lang; } else u.lang = 'es-ES';
+      if (pick) { u.voice = speechSynthesis.getVoices().find(x => x.name === pick.name) || null; u.lang = pick.lang; } else u.lang = 'es-ES';
       u.rate = prefs.rate || 1;
       u.onend = u.onerror = () => res(token === tts.token);
       speechSynthesis.speak(u);
@@ -219,6 +234,12 @@ export async function openReader(id, cfiTarget) {
         if (!tts.on || token !== tts.token) return;
         $('#lInfo', root).textContent = parts[i].trim().slice(0, 70);
         if (!(await speak(parts[i], token))) return;
+        if (nativa && tts.cortada) {                      // pausa en la voz nativa: se espera y se repite la frase
+          tts.cortada = false;
+          while (tts.pausa && tts.on && token === tts.token) await new Promise(r => setTimeout(r, 150));
+          if (!tts.on || token !== tts.token) return;
+          i--; continue;
+        }
       }
       if (!tts.on || token !== tts.token) return;
       const before = rendition.currentLocation()?.start?.cfi;
@@ -227,14 +248,18 @@ export async function openReader(id, cfiTarget) {
       if (rendition.currentLocation()?.start?.cfi === before) { stopTTS(); toast('Llegaste al final'); return; }
     }
   }
-  function stopTTS() { tts.on = false; tts.token++; speechSynthesis.cancel(); $('#listen', root).hidden = true; }
-  $('#rListen', root).onclick = () => { if (!('speechSynthesis' in window)) return toast('Este navegador no tiene lectura en voz alta'); tts.on ? stopTTS() : listenLoop(); };
+  function stopTTS() { tts.on = false; tts.token++; tts.pausa = false; try { nativa ? AN.ttsParar() : speechSynthesis.cancel(); } catch { } $('#listen', root).hidden = true; }
+  $('#rListen', root).onclick = () => { if (!hayVoz()) return toast('Este dispositivo no tiene lectura en voz alta'); tts.on ? stopTTS() : listenLoop(); };
   $('#lStop', root).onclick = stopTTS;
   $('#lPlay', root).onclick = () => {
+    if (nativa) {
+      if (tts.pausa) { tts.pausa = false; $('#lPlay', root).innerHTML = ic('pause'); } else { tts.pausa = true; AN.ttsParar(); $('#lPlay', root).innerHTML = ic('play'); }
+      return;
+    }
     if (speechSynthesis.paused) { speechSynthesis.resume(); $('#lPlay', root).innerHTML = ic('pause'); }
     else { speechSynthesis.pause(); $('#lPlay', root).innerHTML = ic('play'); }
   };
-  speechSynthesis?.getVoices();
+  try { if (!nativa && 'speechSynthesis' in window) speechSynthesis.getVoices(); } catch { }
 
   let acc = 0, flushed = 0;
   const timeT = setInterval(() => { if (document.visibilityState === 'visible' && document.hasFocus()) { acc += 5; if (acc - flushed >= 20) { addTime(b.id, acc - flushed); flushed = acc; } } }, 5000);
