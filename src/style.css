@@ -58,34 +58,44 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .board{height:15px;margin:0 -12px;border-radius:2px;background:linear-gradient(180deg,var(--wood1),var(--wood2));box-shadow:0 8px 14px rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.14);position:relative;z-index:1}
 :root{--noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 
-/* Lomo: franja de la portada, tela, cabezal, placa de título y marcapáginas del color del estado */
-.spine{--c1:#555;--c2:#aaa;--w:36px;--h:140px;--sc:var(--idle);--art:none;position:relative;flex:none;width:var(--w);height:var(--h);border-radius:3px;color:#fff;
-  background:linear-gradient(90deg,rgba(0,0,0,.42),rgba(255,255,255,.16) 14%,rgba(255,255,255,0) 40%,rgba(0,0,0,.05) 62%,rgba(0,0,0,.42)),var(--art),var(--c1);
-  background-size:100% 100%,auto 100%,100% 100%;background-position:0 0,left top,0 0;background-repeat:no-repeat;
-  box-shadow:0 0 0 1px rgba(0,0,0,.3),inset 0 0 6px rgba(0,0,0,.25);translate:var(--sx,0px) 0;z-index:2;
-  transition:transform .25s cubic-bezier(.2,.8,.3,1),translate .45s cubic-bezier(.3,.7,.2,1),opacity .35s,filter .35s}
-.spine::after{content:"";position:absolute;inset:0;background:var(--noise);mix-blend-mode:multiply;opacity:.4;pointer-events:none;border-radius:inherit}
-.spine .hb,.spine .tb{position:absolute;left:0;right:0;height:5px;background:repeating-linear-gradient(90deg,#E8D9A8 0 2px,#8C6B3A 2px 4px);box-shadow:inset 0 -1px 1px rgba(0,0,0,.4)}
-.spine .hb{top:0;border-radius:3px 3px 0 0}.spine .tb{bottom:0}
-.spine .foil{position:absolute;left:0;right:0;top:11px;height:2px;background:#E3C071;box-shadow:0 4px 0 #E3C071,0 0 2px rgba(227,192,113,.6);opacity:.9}
-.spine .t{position:absolute;top:20px;bottom:30px;left:50%;width:min(calc(var(--w) - 12px),22px);transform:translateX(-50%);display:flex;justify-content:center;align-items:flex-start;writing-mode:vertical-rl;
-  background:rgba(247,241,226,.94);color:#201A10;border-radius:2px;padding:6px 0;font:600 10.5px/1.15 var(--f-body);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,.45),inset 0 0 0 1px rgba(120,90,40,.35);z-index:1}
-.spine.serif .t{font-family:var(--f-display);font-weight:400}
-.spine.caps .t{text-transform:uppercase;letter-spacing:.1em;font-weight:700}
-.spine .pub{position:absolute;left:50%;bottom:12px;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;border:1.5px solid #E3C071;opacity:.9}
-.spine .rib{position:absolute;left:50%;margin-left:-4px;top:calc(var(--h) - 6px);width:8px;height:22px;background:linear-gradient(90deg,rgba(0,0,0,.25),rgba(255,255,255,.25) 40%,rgba(0,0,0,.15)),var(--sc);
-  clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%);transform-origin:50% 0;animation:sway 4.2s ease-in-out infinite;z-index:2}
+/* Lomo liviano: cabezal, pie, hilos, sello, tela y brillo son capas de un solo fondo (sin nodos extra, filtros ni mezclas).
+   Así 300 libros siguen moviéndose fluido en un teléfono. */
+@property --shx{syntax:'<percentage>';inherits:false;initial-value:-130%}
+.spine{--c1:#555;--c2:#aaa;--w:36px;--h:140px;--sc:var(--idle);--art:none;--tt:17px;--th:90px;position:relative;flex:none;width:var(--w);height:var(--h);border-radius:3px;color:#fff;contain:layout style;
+  background-color:var(--c1);
+  background-image:
+    linear-gradient(100deg,transparent calc(var(--shx) - 12%),rgba(255,255,255,.38) var(--shx),transparent calc(var(--shx) + 12%)),
+    var(--noise-a),
+    radial-gradient(circle at 50% calc(100% - 16.5px),transparent 3px,#E3C071 3.2px,#E3C071 4.6px,transparent 4.8px),
+    linear-gradient(#E3C071,#E3C071),linear-gradient(#E3C071,#E3C071),
+    repeating-linear-gradient(90deg,#E8D9A8 0 2px,#8C6B3A 2px 4px),repeating-linear-gradient(90deg,#E8D9A8 0 2px,#8C6B3A 2px 4px),
+    linear-gradient(90deg,rgba(0,0,0,.42),rgba(255,255,255,.16) 14%,rgba(255,255,255,0) 40%,rgba(0,0,0,.05) 62%,rgba(0,0,0,.42)),
+    var(--art);
+  background-size:100% 100%,90px 90px,100% 100%,100% 2px,100% 2px,100% 5px,100% 5px,100% 100%,auto 100%;
+  background-position:0 0,0 0,0 0,0 11px,0 15px,0 0,0 100%,0 0,left top;
+  background-repeat:no-repeat,repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat;
+  box-shadow:0 0 0 1px rgba(0,0,0,.3);translate:var(--sx,0px) 0;z-index:2;
+  transition:transform .25s cubic-bezier(.2,.8,.3,1),translate .45s cubic-bezier(.3,.7,.2,1),opacity .35s}
+/* marcapáginas del color del estado (quieto en el estante; se balancea solo al pasar el cursor o en la escena) */
+.spine::after{content:"";position:absolute;left:50%;margin-left:-4px;top:calc(var(--h) - 6px);width:8px;height:22px;background:linear-gradient(90deg,rgba(0,0,0,.25),rgba(255,255,255,.25) 40%,rgba(0,0,0,.15)),var(--sc);
+  clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%);transform-origin:50% 0;z-index:2}
 @keyframes sway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
-.spine .sheen{position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;z-index:2}
-.spine .sheen::before{content:"";position:absolute;top:-10%;bottom:-10%;left:-70%;width:60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.4),transparent);transform:skewX(-12deg)}
-.spine .tip{position:absolute;left:50%;bottom:calc(100% + 16px);transform:translate(-50%,4px);background:rgba(10,18,20,.96);color:#F3ECDB;font:600 11px/1.3 var(--f-body);padding:5px 9px;border-radius:8px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:30;box-shadow:0 4px 12px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.12)}
+/* protección suave detrás del título cuando la portada tiene dibujo */
+.spine.scr::before{content:"";position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--tt) - 2px);height:calc(var(--th) + 4px);width:calc(var(--w) - 4px);background:radial-gradient(ellipse at center,var(--scc) 0,transparent 72%);pointer-events:none;z-index:1}
+.spine.scr.foil{--scc:rgba(8,10,12,.5)}.spine.scr.ink{--scc:rgba(255,255,255,.46)}
+.spine .ttl,.spine .aut{position:absolute;left:50%;transform:translateX(-50%);writing-mode:vertical-rl;white-space:nowrap;z-index:2;pointer-events:none}
+.spine .ttl{display:flex;flex-direction:column;justify-content:center;align-items:center;line-height:1.08;text-align:center}
+.spine .aut{display:flex;align-items:center;justify-content:center;text-transform:uppercase;letter-spacing:.14em;font:600 8px/1 var(--f-body)}
+.spine.foil .ttl,.spine.foil .aut{color:#E6C877;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+.spine.ink .ttl,.spine.ink .aut{color:#2A1E10;text-shadow:0 1px 0 rgba(255,255,255,.3)}
+html[data-theme="contraste"] .spine.foil .ttl,html[data-theme="contraste"] .spine.foil .aut{color:#FFE066}
 @media (hover:hover){
   .spine:hover:not(.drag),.spine:focus-visible{transform:translateY(-8px)}
-  .spine:hover .sheen::before{animation:sheen .7s ease-out}
-  .spine:hover .tip{opacity:1;transform:translate(-50%,0)}
+  .spine:hover:not(.drag){animation:sheen .7s ease-out}
+  .spine:hover:not(.drag)::after{animation:sway 2.4s ease-in-out infinite}
 }
-@keyframes sheen{to{transform:translateX(330%) skewX(-12deg)}}
-.spine.dim{opacity:.2;filter:saturate(.3)}
+@keyframes sheen{from{--shx:-130%}to{--shx:230%}}
+.spine.dim{opacity:.2}
 .spine.hit{transform:translateY(-8px)}
 .spine.pick{transform:translateY(-28px);outline:2px solid #E4B861;outline-offset:2px;animation:none}
 .reorder .spine:not(.pick){animation:wob .7s ease-in-out infinite alternate}

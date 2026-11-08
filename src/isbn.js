@@ -1,3 +1,4 @@
+import { shrinkImage } from './color.js';
 // Búsqueda por ISBN en Open Library (gratis) y lectura del código de barras con la cámara del dispositivo.
 export async function lookupISBN(raw) {
   const code = String(raw).replace(/[^0-9Xx]/g, '');
@@ -10,7 +11,7 @@ export async function lookupISBN(raw) {
   let cover = null;
   try {
     const u = d.cover?.large || d.cover?.medium || `https://covers.openlibrary.org/b/isbn/${code}-L.jpg?default=false`;
-    const r = await fetch(u); if (r.ok) { const b = await r.blob(); if (b.size > 1500) cover = b; }
+    const r = await fetch(u); if (r.ok) { const b = await r.blob(); if (b.size > 1500) cover = await shrinkImage(b); }
   } catch { /* sin portada */ }
   const syn = typeof d.notes === 'string' ? d.notes : (d.notes?.value || d.excerpts?.[0]?.text || '');
   return { title: d.title + (d.subtitle ? ': ' + d.subtitle : ''), author: (d.authors || []).map(a => a.name).join(', ') || 'Autor desconocido', pages: d.number_of_pages || 0, cover, syn: String(syn).slice(0, 600), isbn: code };

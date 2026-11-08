@@ -334,11 +334,10 @@ body{font-size:calc(15px * var(--ts))}
   #reader .panel[hidden]{display:none}
 }
 
-/* ===== Título grabado directo en el lomo (sin marco) ===== */
-.spine .ttl{position:absolute;left:50%;transform:translateX(-50%);writing-mode:vertical-rl;display:flex;flex-direction:column;justify-content:center;align-items:center;white-space:nowrap;z-index:2;pointer-events:none;line-height:1.08;text-align:center}
-.spine .ttl span{display:block}
-.spine .scrim{position:absolute;left:50%;transform:translateX(-50%);pointer-events:none;z-index:1;border-radius:50%/20px;filter:blur(3px)}
-.spine .aut{position:absolute;left:50%;transform:translateX(-50%);writing-mode:vertical-rl;white-space:nowrap;z-index:2;pointer-events:none;text-transform:uppercase;letter-spacing:.14em;font:600 8px/1 var(--f-body);display:flex;align-items:center;justify-content:center}
-.fin-foil{background:linear-gradient(90deg,#F6E6AE,#D9B45A 45%,#B98C34);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 1px 0 rgba(0,0,0,.55)) drop-shadow(0 0 4px rgba(233,208,138,.18))}
-.fin-ink{color:#2A1E10;text-shadow:0 1px 0 rgba(255,255,255,.28)}
-html[data-theme="contraste"] .fin-foil{background:none;color:#FFE066;filter:drop-shadow(0 1px 0 #000)}
+/* ===== Rendimiento: tela más liviana, filas fuera de pantalla sin dibujar y escena con detalles extra ===== */
+:root{--noise-a:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.shelfrow,.piso{content-visibility:auto;contain-intrinsic-size:auto 236px}
+.bk .f-sp .spine::after{animation:sway 4.2s ease-in-out infinite}
+.bk .f-sp .spine.foil .ttl{background:linear-gradient(90deg,#F6E6AE,#D9B45A 45%,#B98C34);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 1px 0 rgba(0,0,0,.55))}
+#sptip{position:fixed;z-index:75;pointer-events:none;background:rgba(10,18,20,.96);color:#F3ECDB;font:600 11px/1.3 var(--f-body);padding:5px 9px;border-radius:8px;white-space:nowrap;opacity:0;transition:opacity .15s;border:1px solid rgba(255,255,255,.12);box-shadow:0 4px 12px rgba(0,0,0,.45)}
+#sptip.on{opacity:1}

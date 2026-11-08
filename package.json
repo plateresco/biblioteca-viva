@@ -3,7 +3,19 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": { "dev": "vite --port 5180 --host", "build": "vite build", "preview": "vite preview --port 5181 --host" },
-  "dependencies": { "epubjs": "0.3.93" },
-  "devDependencies": { "vite": "^6.0.0", "vite-plugin-pwa": "^0.21.0" }
+  "scripts": {
+    "dev": "vite --port 5180 --host",
+    "build": "vite build",
+    "preview": "vite preview --port 5181 --host"
+  },
+  "dependencies": {
+    "@fontsource/figtree": "^5.3.0",
+    "@fontsource/newsreader": "^5.3.0",
+    "@fontsource/young-serif": "^5.3.0",
+    "epubjs": "0.3.93"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "vite-plugin-pwa": "^0.21.0"
+  }
 }

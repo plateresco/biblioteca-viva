@@ -40,3 +40,15 @@ export async function coverColors(blob, title) {
     return { c1, c2, dark: lum(c1) < .38 };
   } catch { return fallbackColors(title); }
 }
+
+// Reduce una portada a un tamaño cómodo para el teléfono (menos memoria y decodificación más rápida).
+export async function shrinkImage(blob, maxH = 640) {
+  try {
+    if (!blob || blob.size < 90000) return blob;
+    const bmp = await createImageBitmap(blob); if (bmp.height <= maxH) return blob;
+    const k = maxH / bmp.height, cv = new OffscreenCanvas(Math.round(bmp.width * k), maxH);
+    cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+    const out = await cv.convertToBlob({ type: 'image/jpeg', quality: .84 });
+    return out.size < blob.size ? out : blob;
+  } catch { return blob; }
+}

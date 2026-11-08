@@ -1,4 +1,13 @@
 import './style.css';
+import '@fontsource/figtree/latin-400.css';
+import '@fontsource/figtree/latin-500.css';
+import '@fontsource/figtree/latin-600.css';
+import '@fontsource/figtree/latin-700.css';
+import '@fontsource/young-serif/latin-400.css';
+import '@fontsource/newsreader/latin-400.css';
+import '@fontsource/newsreader/latin-500.css';
+import '@fontsource/newsreader/latin-400-italic.css';
+import '@fontsource/newsreader/latin-500-italic.css';
 import './style2.css';
 import { registerSW } from 'virtual:pwa-register';
 import { S, load, onChange, byId } from './state.js';
@@ -6,21 +15,22 @@ import { P, setPref, THEMES } from './prefs.js';
 import { $, $$, ic } from './ui.js';
 import { drawLib, selectBook, isWide } from './lib.js';
 import { drawHoy } from './hoy.js';
-import { drawFrases } from './frases.js';
-import { drawStats } from './cifras.js';
-import { drawMore } from './more.js';
-import { openReader } from './reader.js';
 import { openCover, openAdd } from './sheets.js';
 import { openScene, sceneOpen } from './scene.js';
 import { openPalette, setPaletteCtx } from './palette.js';
 import { isEnabled, hasToken, isSyncing, connect, syncNow, syncLabel, onSyncStatus } from './sync.js';
 import { checkReminder } from './reminder.js';
 import { resetSpineCache } from './spine.js';
+import { shrinkImage } from './color.js';
+import { persistBook } from './state.js';
 
 registerSW({ immediate: true });
 
 const TABS = [['hoy', 'Hoy', 'home'], ['lib', 'Biblioteca', 'shelf'], ['fr', 'Frases', 'quote'], ['stats', 'Cifras', 'chart'], ['more', 'Más', 'more']];
-const DRAW = { hoy: drawHoy, lib: drawLib, fr: drawFrases, stats: drawStats, more: drawMore };
+// Las pantallas menos usadas y el lector (que trae la librería de EPUB) se descargan recién cuando se necesitan.
+const lazy = (mod, fn) => c => import(mod).then(x => x[fn](c));
+const DRAW = { hoy: drawHoy, lib: drawLib, fr: lazy('./frases.js', 'drawFrases'), stats: lazy('./cifras.js', 'drawStats'), more: lazy('./more.js', 'drawMore') };
+const openReader = (...a) => import('./reader.js').then(m => m.openReader(...a));
 const ctx = {
   openReader, openSheet: id => openCover(id, { openReader }), add: openAdd,
   go: t => go(t),
@@ -55,8 +65,9 @@ export function go(t) {
   DRAW[t](ctx);
   $('#v-' + t).scrollTop = 0;
 }
+let redrawQ = 0;
 const redraw = () => { if (sceneOpen()) return; DRAW[S.ui.tab](ctx); };
-onChange(redraw);
+onChange(() => { if (redrawQ) return; redrawQ = requestAnimationFrame(() => { redrawQ = 0; redraw(); }); });   // varios cambios seguidos = un solo dibujo
 let rz, lastWide = innerWidth >= 1000;
 new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => { const w = innerWidth >= 1000; if (S.ui.tab === 'lib' || w !== lastWide) { lastWide = w; redraw(); } }, 150); }).observe(document.body);
 
@@ -88,4 +99,12 @@ load().then(() => {
   // Los títulos de los lomos se miden con la tipografía real: al terminar de cargar las fuentes se vuelven a calcular.
   Promise.all(['600 12px Figtree', '700 12px Figtree', '400 12px "Young Serif"', 'italic 500 12px Newsreader'].map(f => document.fonts.load(f).catch(() => { })))
     .then(() => { resetSpineCache(); if (!sceneOpen()) redraw(); });
+  // En segundo plano: las portadas grandes de antes se reducen (menos memoria la próxima vez que abras la app).
+  const idle = window.requestIdleCallback || (f => setTimeout(f, 800));
+  const slim = async () => {
+    const big = S.books.filter(b => b.cover && b.cover.size > 110000 && !b.slim).slice(0, 4);
+    for (const b of big) { const small = await shrinkImage(b.cover); b.slim = true; if (small !== b.cover) b.cover = small; await persistBook(b); }
+    if (S.books.some(b => b.cover && b.cover.size > 110000 && !b.slim)) idle(slim);
+  };
+  idle(slim);
 });

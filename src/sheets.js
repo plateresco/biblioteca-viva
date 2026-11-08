@@ -1,8 +1,8 @@
 import { S, ST, FORMATS, byId, coverUrl, addBook, saveBook, removeBook, setStatus, addPages, today, fd, emit } from './state.js';
 import { $, $$, esc, ic, openSheet, closeSheet, toast } from './ui.js';
-import { readEpub } from './epubimport.js';
 import { coverColors, fallbackColors } from './color.js';
 import { lookupISBN, canScan, startScan } from './isbn.js';
+import { shrinkImage } from './color.js';
 import { getClientId, setClientId, isEnabled, lastSync, hasToken, connect, syncNow, disable as disableSync } from './sync.js';
 
 export function coverFace(b, cls = 'cover') {
@@ -88,7 +88,7 @@ export function openAdd(mode) {
       row.innerHTML = `<span class="spin"></span><div style="min-width:0"><b>${esc(f.name)}</b><div class="small" data-s>Leyendo el libro…</div></div>`;
       log.prepend(row);
       try {
-        const info = await readEpub(f, p => { row.querySelector('[data-s]').textContent = `Contando páginas… ${Math.round(p * 100)} %`; });
+        const { readEpub } = await import('./epubimport.js'); const info = await readEpub(f, p => { row.querySelector('[data-s]').textContent = `Contando páginas… ${Math.round(p * 100)} %`; });
         const col = info.cover ? await coverColors(info.cover, info.title) : fallbackColors(info.title);
         const b = await addBook({ t: info.title, a: info.author, p: info.pages, f: 'EPUB', cover: info.cover, syn: info.syn, hasFile: true, ...col }, f);
         row.innerHTML = `${miniFace(b)}<div style="min-width:0"><b>${esc(b.t)}</b><div class="small">${esc(b.a)} · ${b.p} págs. estimadas</div></div>`;
@@ -175,7 +175,7 @@ export function openEdit(id) {
     b.st = d.get('st') || null; b.en = d.get('en') || null;
     const ns = d.get('s');
     const file = d.get('cov');
-    if (file && file.size) { b.cover = file; Object.assign(b, await coverColors(file, b.t)); }
+    if (file && file.size) { b.cover = await shrinkImage(file); Object.assign(b, await coverColors(b.cover, b.t)); }
     else if (!b.c1) Object.assign(b, fallbackColors(b.t));
     if (b.id) {
       b.s = ns;

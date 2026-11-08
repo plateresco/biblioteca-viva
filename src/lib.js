@@ -113,8 +113,24 @@ export function drawLib(ctx) {
     else openCover(id, { openReader: ctx.openReader });
   };
   $$('.spine, .btile, .lrow', v).forEach(e => { e.onclick = () => open(+e.dataset.id, e); e.ondblclick = () => { if (isWide() && e.classList.contains('spine')) openScene(+e.dataset.id, e, ctx); }; });
-  if (!v._drag) { v._drag = true; setupDrag(v, ctx); }
+  if (!v._drag) { v._drag = true; setupDrag(v, ctx); setupTip(v); }
   drawDetail(ctx);
+}
+
+// Una sola etiqueta compartida (en vez de una por libro): aparece al pasar el cursor por un lomo.
+function setupTip(v) {
+  if (!matchMedia('(hover:hover)').matches) return;
+  let tip = $('#sptip'); if (!tip) { tip = document.createElement('div'); tip.id = 'sptip'; document.body.appendChild(tip); }
+  v.addEventListener('pointerover', e => {
+    const s = e.target.closest('.spine'); if (!s || s.classList.contains('drag')) return;
+    const b = byId(+s.dataset.id); if (!b) return;
+    tip.textContent = `${b.t} · ${b.p} págs.`;
+    const r = s.getBoundingClientRect(), w = tip.offsetWidth;
+    tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px'; tip.style.top = Math.max(8, r.top - 44) + 'px';
+    tip.classList.add('on');
+  });
+  v.addEventListener('pointerout', e => { if (e.target.closest('.spine')) tip.classList.remove('on'); });
+  v.addEventListener('pointerdown', () => tip.classList.remove('on'));
 }
 
 function applyDim(v) {
@@ -182,7 +198,14 @@ function setupDrag(v, ctx) {
         if (dx || dy) { s.style.transition = 'none'; s.style.translate = `${dx}px ${dy}px`; s.getBoundingClientRect(); s.style.transition = 'translate .2s cubic-bezier(.2,.8,.3,1)'; s.style.translate = ''; setTimeout(() => { s.style.transition = ''; }, 230); }
       });
     };
-    const move = ev => { lastY = ev.clientY; el.style.left = (ev.clientX - offX) + 'px'; el.style.top = (ev.clientY - offY) + 'px'; place(ev.clientX - offX + r.width / 2, ev.clientY); };
+    // el libro sigue al dedo en cada evento, pero el cálculo de dónde cae se hace una vez por cuadro
+    let pend = null;
+    const move = ev => {
+      lastY = ev.clientY; el.style.left = (ev.clientX - offX) + 'px'; el.style.top = (ev.clientY - offY) + 'px';
+      if (pend) { pend.x = ev.clientX; pend.y = ev.clientY; return; }
+      pend = { x: ev.clientX, y: ev.clientY };
+      requestAnimationFrame(() => { const p = pend; pend = null; if (p && drag) place(p.x - offX + r.width / 2, p.y); });
+    };
     let raf = 0;
     const scroll = () => { const vb = v.getBoundingClientRect(); if (lastY < vb.top + 90) v.scrollTop -= 9; else if (lastY > vb.bottom - 90) v.scrollTop += 9; raf = requestAnimationFrame(scroll); };
     raf = requestAnimationFrame(scroll);

@@ -1,4 +1,5 @@
 import ePub from 'epubjs';
+import { shrinkImage } from './color.js';
 
 const CHARS_PER_PAGE = 1800; // una página de libro impreso, aproximadamente
 
@@ -18,7 +19,7 @@ export async function readEpub(file, onProgress = () => {}) {
     let cover = null;
     try {
       const url = await book.coverUrl();
-      if (url) cover = await (await fetch(url)).blob();
+      if (url) cover = await shrinkImage(await (await fetch(url)).blob());
     } catch { /* sin portada */ }
     let chars = 0;
     const items = book.spine.spineItems;

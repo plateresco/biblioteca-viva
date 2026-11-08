@@ -14,7 +14,7 @@ export default defineConfig({
         { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }
       ]
     },
-    workbox: { maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, runtimeCaching: [
+    workbox: { globPatterns: ['**/*.{js,css,html,woff2,png,svg}'], maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, runtimeCaching: [
       { urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/, handler: 'StaleWhileRevalidate', options: { cacheName: 'fonts' } }
     ] }
   })]
