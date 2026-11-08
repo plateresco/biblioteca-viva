@@ -80,11 +80,14 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
-        final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
+        // La carpeta de EPUB recibidos debe ser una subcarpeta de la cache (la cache misma no se permite).
+        File entrada = new File(getCacheDir(), "entrada"); entrada.mkdirs();
+        WebViewAssetLoader.Builder lb = new WebViewAssetLoader.Builder()
                 .setDomain(DOMINIO)
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-                .addPathHandler("/cache/", new WebViewAssetLoader.InternalStoragePathHandler(this, getCacheDir()))
-                .build();
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this));
+        try { lb.addPathHandler("/cache/entrada/", new WebViewAssetLoader.InternalStoragePathHandler(this, entrada)); }
+        catch (Exception e) { /* sin esta ruta solo falla abrir EPUB desde otras apps */ }
+        final WebViewAssetLoader loader = lb.build();
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
                 return loader.shouldInterceptRequest(r.getUrl());
