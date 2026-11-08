@@ -104,7 +104,17 @@ export async function removeNote(id) { await addTomb(S.notes.find(n => n.id === 
 // Forma del lomo según el libro: más páginas = más grueso y un poco más alto.
 export function spineGeom(b) {
   const p = Math.max(40, b.p || 200), j = (b.id * 2654435761 >>> 0) % 9;           // pequeña variación fija por libro
-  const w = Math.round(Math.min(64, Math.max(22, 18 + p * 0.068)) + (j % 3) - 1);
-  const h = Math.round(122 + Math.min(p, 800) / 800 * 40 + (j % 5) - 2);
+  const w = Math.round(Math.min(84, 16 + p * 0.05) + (j % 3) - 1);                  // sin tope práctico: un tomo de 1.200 págs. se nota
+  const h = Math.round(116 + Math.min(p, 1000) / 1000 * 52 + (j % 5) - 2);
   return { w, h };
+}
+
+// Deja el libro en la posición `idx` (0 = primero) y renumera el orden.
+export async function moveToIndex(id, idx) {
+  const a = S.books.findIndex(b => b.id === id);
+  if (a < 0) return;
+  const [m] = S.books.splice(a, 1);
+  S.books.splice(Math.max(0, Math.min(idx, S.books.length)), 0, m);
+  for (let i = 0; i < S.books.length; i++) if (S.books[i].order !== i + 1) { S.books[i].order = i + 1; S.books[i].upd = Date.now(); await db.put('books', S.books[i]); }
+  emit();
 }

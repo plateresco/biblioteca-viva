@@ -4,12 +4,13 @@ import { S, load, onChange } from './state.js';
 import { $, $$, ic } from './ui.js';
 import { drawLib, drawList, drawStats, drawDisc } from './views.js';
 import { openReader } from './reader.js';
+import { openCover } from './sheets.js';
 import { isEnabled, hasToken, isSyncing, connect, syncNow } from './sync.js';
 
 registerSW({ immediate: true });
 
 const TABS = [['lib', 'Biblioteca', 'shelf'], ['list', 'Listas', 'list'], ['stats', 'Cifras', 'chart'], ['disc', 'Descubrir', 'spark']];
-const ctx = { openReader };
+const ctx = { openReader, openSheet: id => openCover(id, { openReader }) };
 const DRAW = { lib: drawLib, list: drawList, stats: drawStats, disc: drawDisc };
 
 function shell() {

@@ -1,6 +1,7 @@
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-export const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+export const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const esc =s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const P = {
   shelf: '<path d="M4 20V5M20 20V5M4 20h16M8 20v-9h3v9M13 20V8h3v12"/>',

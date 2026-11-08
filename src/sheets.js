@@ -70,7 +70,7 @@ export function openAdd() {
       try {
         const info = await readEpub(f, p => { row.querySelector('[data-s]').textContent = `Contando páginas… ${Math.round(p * 100)} %`; });
         const col = info.cover ? await coverColors(info.cover, info.title) : fallbackColors(info.title);
-        const b = await addBook({ t: info.title, a: info.author, p: info.pages, f: 'EPUB', cover: info.cover, hasFile: true, ...col }, f);
+        const b = await addBook({ t: info.title, a: info.author, p: info.pages, f: 'EPUB', cover: info.cover, syn: info.syn, hasFile: true, ...col }, f);
         row.innerHTML = `${miniFace(b)}<div style="min-width:0"><b>${esc(b.t)}</b><div class="small">${esc(b.a)} · ${b.p} págs. estimadas</div></div>`;
       } catch (err) {
         console.error(err);
@@ -115,6 +115,7 @@ export function openEdit(id) {
         <label>Formato<select name="f">${FORMATS.map(x => `<option ${x === b.f ? 'selected' : ''}>${x}</option>`).join('')}</select></label></div>
       <label>Estado<select name="s">${Object.entries(ST).map(([k, v]) => `<option value="${k}" ${k === b.s ? 'selected' : ''}>${v.n}</option>`).join('')}</select></label>
       <div class="two"><label>Empezó<input name="st" type="date" value="${b.st || ''}"></label><label>Terminó o lo dejó<input name="en" type="date" value="${b.en || ''}"></label></div>
+      <label>Sinopsis (opcional, se ve en la contraportada)<textarea name="syn" rows="3" maxlength="600">${esc(b.syn || '')}</textarea></label>
       <label>Portada (opcional)<input name="cov" type="file" accept="image/*"></label>
       <div class="row"><button class="btn" type="submit">${id ? 'Guardar cambios' : 'Agregar a la estantería'}</button>
         ${id ? `<button class="btn danger" type="button" id="del">${ic('trash')}Quitar</button>` : ''}</div>
@@ -124,7 +125,7 @@ export function openEdit(id) {
     const d = new FormData(e.target);
     const prevS = b.s;
     b.t = d.get('t').trim(); b.a = (d.get('a') || '').trim() || 'Autor desconocido';
-    b.p = Math.max(1, +d.get('p') || 1); b.f = d.get('f');
+    b.p = Math.max(1, +d.get('p') || 1); b.f = d.get('f'); b.syn = (d.get('syn') || '').trim();
     b.st = d.get('st') || null; b.en = d.get('en') || null;
     const ns = d.get('s');
     const file = d.get('cov');

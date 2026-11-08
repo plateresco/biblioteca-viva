@@ -2,6 +2,13 @@ import ePub from 'epubjs';
 
 const CHARS_PER_PAGE = 1800; // una página de libro impreso, aproximadamente
 
+// La descripción del EPUB suele traer etiquetas HTML: se deja solo el texto.
+function cleanText(html) {
+  if (!html) return '';
+  const d = new DOMParser().parseFromString(String(html), 'text/html');
+  return (d.body.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+}
+
 // Lee el EPUB: título, autor, portada y cuántas páginas tendría impreso.
 export async function readEpub(file, onProgress = () => {}) {
   const book = ePub(await file.arrayBuffer());
@@ -27,6 +34,7 @@ export async function readEpub(file, onProgress = () => {}) {
       title: (meta.title || file.name.replace(/\.epub$/i, '')).trim(),
       author: (meta.creator || 'Autor desconocido').trim(),
       cover,
+      syn: cleanText(meta.description),
       pages: Math.max(1, Math.round(chars / CHARS_PER_PAGE)),
       chapters: items.length,
     };
