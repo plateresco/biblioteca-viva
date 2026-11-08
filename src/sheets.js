@@ -1,3 +1,4 @@
+import { importarArchivo } from './importar.js';
 import { S, ST, FORMATS, byId, coverUrl, addBook, saveBook, removeBook, setStatus, addPages, today, fd, emit } from './state.js';
 import { $, $$, esc, ic, openSheet, closeSheet, toast } from './ui.js';
 import { coverColors, fallbackColors } from './color.js';
@@ -82,21 +83,33 @@ export function openAdd(mode) {
   ['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', e => run([...e.dataTransfer.files].filter(f => /\.epub$/i.test(f.name))));
+  let corriendo = false;
   async function run(files) {
-    for (const f of files) {
+    files = files.filter(f => /\.epub$/i.test(f.name) || f.type === 'application/epub+zip');
+    if (!files.length) return toast('Elige archivos .epub');
+    if (corriendo) return toast('Espera: todavía se están agregando libros');
+    corriendo = true;
+    const res = { nuevo: 0, repetido: 0, fallo: [] }, resumen = document.createElement('div'); resumen.className = 'found'; log.prepend(resumen);
+    const avance = i => { resumen.innerHTML = `<span class="spin"></span><div class="small"><b>Libro ${Math.min(i + 1, files.length)} de ${files.length}</b> · ${res.nuevo} agregados · ${res.repetido} ya estaban${res.fallo.length ? ` · ${res.fallo.length} con error` : ''}</div>`; };
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i]; avance(i);
       const row = document.createElement('div'); row.className = 'found';
       row.innerHTML = `<span class="spin"></span><div style="min-width:0"><b>${esc(f.name)}</b><div class="small" data-s>Leyendo el libro…</div></div>`;
-      log.prepend(row);
+      resumen.after(row);
       try {
-        const { readEpub } = await import('./epubimport.js'); const info = await readEpub(f, p => { row.querySelector('[data-s]').textContent = `Contando páginas… ${Math.round(p * 100)} %`; });
-        const col = info.cover ? await coverColors(info.cover, info.title) : fallbackColors(info.title);
-        const b = await addBook({ t: info.title, a: info.author, p: info.pages, f: 'EPUB', cover: info.cover, syn: info.syn, hasFile: true, ...col }, f);
-        row.innerHTML = `${miniFace(b)}<div style="min-width:0"><b>${esc(b.t)}</b><div class="small">${esc(b.a)} · ${b.p} págs. estimadas</div></div>`;
+        const r = await importarArchivo(f, p => { row.querySelector('[data-s]').textContent = `Contando páginas… ${Math.round(p * 100)} %`; });
+        if (r.estado === 'nuevo') { res.nuevo++; row.innerHTML = `${miniFace(r.libro)}<div style="min-width:0"><b>${esc(r.libro.t)}</b><div class="small">${esc(r.libro.a)} · ${r.libro.p} págs. estimadas</div></div>`; }
+        else { res.repetido++; row.innerHTML = `${miniFace(r.libro)}<div style="min-width:0"><b>${esc(r.libro.t)}</b><div class="small">Ya lo tenías: no se agregó otra vez</div></div>`; }
       } catch (err) {
-        console.error(err);
+        console.error(err); res.fallo.push(f.name);
         row.innerHTML = `<div><b>${esc(f.name)}</b><div class="small" style="color:var(--bad)">No se pudo leer este archivo. ¿Es un EPUB válido?</div></div>`;
       }
+      await new Promise(r => setTimeout(r, 30));   // deja respirar a la pantalla entre libros
     }
+    corriendo = false;
+    resumen.innerHTML = `<div class="small"><b>Listo.</b> ${res.nuevo} agregados · ${res.repetido} ya estaban${res.fallo.length ? ` · ${res.fallo.length} con error (${res.fallo.slice(0, 3).map(esc).join(', ')}${res.fallo.length > 3 ? '…' : ''})` : ''}</div>`;
+    fi.value = '';
+    toast(res.nuevo ? `${res.nuevo} libros agregados` : 'No hubo libros nuevos');
   }
   // ISBN: búsqueda por número o con la cámara
   const res = $('#isbnRes', o); let stopCam = null;
@@ -205,10 +218,8 @@ export async function importarEpubs(files, onDone) {
   for (const f of files) {
     try {
       toast(`Leyendo «${f.name}»…`);
-      const { readEpub } = await import('./epubimport.js'), info = await readEpub(f);
-      const col = info.cover ? await coverColors(info.cover, info.title) : fallbackColors(info.title);
-      const b = await addBook({ t: info.title, a: info.author, p: info.pages, f: 'EPUB', cover: info.cover, syn: info.syn, hasFile: true, ...col }, f);
-      toast(`Agregado: ${b.t}`); onDone && onDone(b);
+      const r = await importarArchivo(f);
+      toast(r.estado === 'nuevo' ? `Agregado: ${r.libro.t}` : `Ya lo tenías: ${r.libro.t}`); onDone && onDone(r.libro);
     } catch (e) { console.error(e); toast('No pude leer ese archivo. ¿Es un EPUB válido?'); }
   }
 }

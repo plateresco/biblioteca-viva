@@ -68,6 +68,7 @@ export function go(t) {
   $('#app').classList.toggle('withdetail', t === 'lib');
   DRAW[t](ctx);
   $('#v-' + t).scrollTop = 0;
+  if (window.AndroidApp) setTimeout(() => import('./native.js').then(n => n.pintarBarras()), 150);   // las barras del sistema siguen al color de cada pantalla
 }
 let redrawQ = 0;
 const redraw = () => { if (sceneOpen()) return; DRAW[S.ui.tab](ctx); };

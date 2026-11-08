@@ -76,7 +76,8 @@ public class MainActivity extends Activity {
         s.setAllowContentAccess(false);
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
-        s.setTextZoom(100);              // la app tiene su propio tamaño de texto; el del sistema desacomodaria los lomos
+        if (Build.VERSION.SDK_INT >= 29) s.setForceDark(WebSettings.FORCE_DARK_OFF);   // la app trae sus propios temas; Android no debe oscurecerla por su cuenta
+        s.setTextZoom(100);             // la app tiene su propio tamaño de texto; el del sistema desacomodaria los lomos
         s.setMediaPlaybackRequiresUserGesture(false);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
@@ -211,15 +212,18 @@ public class MainActivity extends Activity {
             });
         }
         // Barras del sistema del mismo color que la sala; iconos claros u oscuros segun el tema.
-        @JavascriptInterface public void barras(final String colorHex, final boolean oscuro) {
+        // arriba = color de la barra de estado; abajo = color de la barra de navegación; los iconos se eligen por separado según el brillo de cada color.
+        @JavascriptInterface public void barras(final String arribaHex, final String abajoHex, final boolean arribaOscuro, final boolean abajoOscuro) {
             runOnUiThread(() -> {
                 try {
-                    int c = Color.parseColor(colorHex);
+                    int a = Color.parseColor(arribaHex), z = Color.parseColor(abajoHex);
                     Window w = getWindow();
-                    w.setStatusBarColor(c); w.setNavigationBarColor(c); web.setBackgroundColor(c);
+                    w.setStatusBarColor(a); w.setNavigationBarColor(z); web.setBackgroundColor(a);
+                    w.getDecorView().setBackgroundColor(a);
                     View d = w.getDecorView(); int f = d.getSystemUiVisibility();
                     int luzSt = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR, luzNav = Build.VERSION.SDK_INT >= 26 ? View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0;
-                    if (oscuro) f &= ~(luzSt | luzNav); else f |= (luzSt | luzNav);
+                    if (arribaOscuro) f &= ~luzSt; else f |= luzSt;
+                    if (abajoOscuro) f &= ~luzNav; else f |= luzNav;
                     d.setSystemUiVisibility(f);
                 } catch (Exception ignored) { }
             });

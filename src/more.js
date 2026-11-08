@@ -10,6 +10,7 @@ import { checkReminder, syncNativeReminder } from './reminder.js';
 import { esApp } from './native.js';
 import { buscarActualizacion, ofrecerInstalar, versionActual, autoActivo, fijarAuto } from './actualizar.js';
 import { imgShelf, shareImage } from './share.js';
+import { sobrantes, quitarRepetidos } from './importar.js';
 
 let sub = null;
 export const openMore = p => { sub = p; };
@@ -20,6 +21,7 @@ const MENU = [
   ['autores', 'Autores', () => `${new Set(S.books.map(b => b.a)).size} autores`, 'users'],
   ['diario', 'Diario de lectura', () => 'Lo que leíste, día por día', 'clock'],
   ['compartir', 'Compartir mi estante', () => 'Una imagen, no un enlace', 'image'],
+  ['repetidos', 'Libros repetidos', () => { const n = sobrantes().length; return n ? `${n} repetidos por quitar` : 'No hay repetidos'; }, 'tag'],
   ['importar', 'Importar y agregar libros', () => 'EPUB, ISBN o lista CSV', 'upload'],
   ['apariencia', 'Apariencia y texto', () => THEMES.find(t => t[0] === P.theme)?.[1] + ' · letra ' + P.textScale + ' %', 'palette'],
   ['recordatorio', 'Recordatorio', () => P.reminder.on ? `Cada día a las ${P.reminder.time}` : 'Apagado', 'bell'],
@@ -165,6 +167,16 @@ const PAGES = {
     b.innerHTML = `<div class="card"><h3>Para tu próxima lectura</h3><div class="sub">La app arma la pregunta con lo que marcaste como leído, en lectura y abandonado. Cópiala y pégala en la IA que prefieras.</div><textarea class="ask" id="ask" readonly aria-label="Pregunta para la IA">${esc(txt)}</textarea>
       <div class="row" style="margin-top:10px"><button class="btn" id="cp">${ic('copy')}Copiar pregunta</button><a class="btn ghost" href="https://www.perplexity.ai/" target="_blank" rel="noopener">Abrir Perplexity</a></div></div>`;
     $('#cp', b).onclick = async () => { try { await navigator.clipboard.writeText(txt); toast('Pregunta copiada'); } catch { $('#ask', b).select(); toast('Selecciónala y cópiala'); } };
+  },
+  repetidos(b) {
+    const draw = () => {
+      const sob = sobrantes();
+      b.innerHTML = `<div class="card"><h3>Libros repetidos</h3><div class="sub">Se buscan libros con el mismo archivo, o con el mismo título, autor y páginas. De cada grupo se conserva el que tiene más avance, frases y diario.</div>
+        ${sob.length ? `<div style="margin:12px 0;display:grid;gap:6px">${sob.slice(0, 40).map(x => `<div class="small">• <b>${esc(x.t)}</b> · ${esc(x.a)}</div>`).join('')}${sob.length > 40 ? `<div class="small">…y ${sob.length - 40} más</div>` : ''}</div>
+        <div class="row"><button class="btn" id="qr">Quitar ${sob.length} repetidos</button></div>` : '<p style="margin-top:12px">Tu biblioteca no tiene libros repetidos.</p>'}</div>`;
+      $('#qr', b)?.addEventListener('click', async e => { e.target.disabled = true; e.target.textContent = 'Quitando…'; const n = await quitarRepetidos(); toast(`${n} repetidos quitados`); draw(); });
+    };
+    draw();
   },
   version(b) {
     const v = versionActual();
