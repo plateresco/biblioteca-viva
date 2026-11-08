@@ -7,6 +7,7 @@ import { openScene } from './scene.js';
 import { drawDetail } from './detail.js';
 import { openPalette } from './palette.js';
 import { OBJ, PISO_H } from './objects.js';
+import { haptic } from './native.js';
 import { coverUrl } from './state.js';
 
 export const isWide = () => innerWidth >= 1000;
@@ -176,7 +177,7 @@ function setupDrag(v, ctx) {
     Object.assign(el.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
     const offX = sx - r.left, offY = sy - r.top;
     drag = { el, ph }; suppressClick = true; document.body.style.userSelect = 'none';
-    try { navigator.vibrate && navigator.vibrate(8); } catch { }
+    haptic('pesado');
     const spines = () => $$('.spine', v).filter(s => s !== el);
     const label = () => { const all = $$('.spine, .ph', v).filter(c => c !== el); ph.firstChild.textContent = (all.indexOf(ph) + 1) + '.º'; };
     label();
@@ -216,6 +217,7 @@ function setupDrag(v, ctx) {
       cancelAnimationFrame(raf);
       const all = $$('.spine, .ph', v).filter(c => c !== el), idx = all.indexOf(ph), pr = ph.getBoundingClientRect();
       const fin = async () => {
+        haptic('tick');
         document.body.style.userSelect = ''; drag = null; setTimeout(() => { suppressClick = false; }, 350);
         if (S.meta.mode === 'manual' && P.view === 'shelf') {
           const id = +el.dataset.id, plan = $$('.piso', v).map(sec => ({ pisoId: sec.dataset.piso, ids: [...$('.shelf', sec).children].map(c => c === ph ? id : (c.classList.contains('spine') && c !== el ? +c.dataset.id : null)).filter(x => x !== null) }));

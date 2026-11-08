@@ -17,7 +17,7 @@ export async function lookupISBN(raw) {
   return { title: d.title + (d.subtitle ? ': ' + d.subtitle : ''), author: (d.authors || []).map(a => a.name).join(', ') || 'Autor desconocido', pages: d.number_of_pages || 0, cover, syn: String(syn).slice(0, 600), isbn: code };
 }
 
-export const canScan = () => 'BarcodeDetector' in window && !!navigator.mediaDevices?.getUserMedia;
+export const canScan = () => !!window.AndroidApp?.escanearIsbn || ('BarcodeDetector' in window && !!navigator.mediaDevices?.getUserMedia);
 
 // Enciende la cámara trasera y avisa cuando detecta un código de barras. Devuelve una función para apagarla.
 export async function startScan(video, onCode, alive = () => true) {

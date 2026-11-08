@@ -22,9 +22,13 @@ import { isEnabled, hasToken, isSyncing, connect, syncNow, syncLabel, onSyncStat
 import { checkReminder } from './reminder.js';
 import { resetSpineCache } from './spine.js';
 import { shrinkImage } from './color.js';
+import { importarEpubs } from './sheets.js';
+import { avisarSiHay } from './actualizar.js';
+import { closeSheet } from './ui.js';
+import { closeScene } from './scene.js';
 import { persistBook } from './state.js';
 
-registerSW({ immediate: true });
+if (!window.AndroidApp) registerSW({ immediate: true });   // dentro de la app los archivos ya están guardados en el teléfono
 
 const TABS = [['hoy', 'Hoy', 'home'], ['lib', 'Biblioteca', 'shelf'], ['fr', 'Frases', 'quote'], ['stats', 'Cifras', 'chart'], ['more', 'Más', 'more']];
 // Las pantallas menos usadas y el lector (que trae la librería de EPUB) se descargan recién cuando se necesitan.
@@ -108,3 +112,24 @@ load().then(() => {
   };
   idle(slim);
 });
+
+// ---- Dentro de la app de Android ----
+// Botón Atrás: cierra primero lo que esté abierto (búsqueda, hoja, escena, lector); después vuelve a Hoy; si ya está en Hoy, la app pasa a segundo plano.
+window.__atras = () => {
+  if ($('#pal')) { $('#pal').remove(); return true; }
+  if ($('#reader')) { $('#rBack')?.click(); return true; }
+  if (sceneOpen()) { closeScene(); return true; }
+  if ($('#sheet')) { closeSheet(); return true; }
+  if (S.ui.tab === 'lib' && S.ui.sel && innerWidth >= 1000) { S.ui.sel = null; go('lib'); return true; }
+  if (S.ui.tab === 'more' && window.__moreVolver && window.__moreVolver()) return true;
+  if (S.ui.tab !== 'hoy') { go('hoy'); return true; }
+  return false;
+};
+// Un EPUB abierto desde otra app (administrador de archivos, WhatsApp, navegador…)
+window.__abrirArchivo = async (url, nombre) => {
+  try {
+    const blob = await (await fetch(url)).blob();
+    await importarEpubs([new File([blob], nombre || 'libro.epub', { type: 'application/epub+zip' })], b => ctx.showBook(b.id));
+  } catch { console.error('abrirArchivo'); }
+};
+if (window.AndroidApp) setTimeout(avisarSiHay, 4000);

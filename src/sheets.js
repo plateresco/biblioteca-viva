@@ -117,6 +117,11 @@ export function openAdd(mode) {
   $('#isbnGo', o).onclick = () => find($('#isbn', o).value);
   $('#isbn', o).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); find($('#isbn', o).value); } });
   $('#scanBtn', o)?.addEventListener('click', async () => {
+    if (window.AndroidApp?.escanearIsbn) {            // dentro de la app: escáner de Google
+      window.__isbnEscaneado = code => find(code);
+      window.__isbnError = () => { res.innerHTML = `<div class="small" style="color:var(--bad);margin-top:8px">No pude abrir el escáner. Escribe el número.</div>`; };
+      window.AndroidApp.escanearIsbn(); return;
+    }
     const cam = $('#cam', o); cam.hidden = false; cam.classList.add('scanning'); $('#camMsg', o).textContent = 'Apunta al código de barras';
     try { stopCam = await startScan($('#vid', o), code => { $('#camMsg', o).textContent = 'Código detectado'; try { navigator.vibrate && navigator.vibrate(12); } catch { } find(code); }, () => document.body.contains(o)); }
     catch (e) { stop(); res.innerHTML = `<div class="small" style="color:var(--bad);margin-top:8px">No pude abrir la cámara. Revisa el permiso o escribe el número.</div>`; }
@@ -193,4 +198,17 @@ export function openEdit(id) {
     if (!armed) { armed = true; ev.currentTarget.textContent = 'Toca otra vez para quitarlo'; return; }
     await removeBook(b.id); closeSheet(); toast('Libro quitado');
   });
+}
+
+// EPUB recibidos desde otras apps (Abrir con… o Compartir): se agregan sin abrir la hoja de agregar.
+export async function importarEpubs(files, onDone) {
+  for (const f of files) {
+    try {
+      toast(`Leyendo «${f.name}»…`);
+      const { readEpub } = await import('./epubimport.js'), info = await readEpub(f);
+      const col = info.cover ? await coverColors(info.cover, info.title) : fallbackColors(info.title);
+      const b = await addBook({ t: info.title, a: info.author, p: info.pages, f: 'EPUB', cover: info.cover, syn: info.syn, hasFile: true, ...col }, f);
+      toast(`Agregado: ${b.t}`); onDone && onDone(b);
+    } catch (e) { console.error(e); toast('No pude leer ese archivo. ¿Es un EPUB válido?'); }
+  }
 }

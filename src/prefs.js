@@ -17,6 +17,7 @@ export function setPref(k, v) {
   P[k] = v;
   try { localStorage.setItem(KEY, JSON.stringify(P)); } catch { }
   applyPrefs();
+import('./native.js').then(n => { n.pintarBarras(); matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => setTimeout(n.pintarBarras, 50)); });
 }
 export function applyPrefs() {
   const r = document.documentElement;
@@ -24,5 +25,6 @@ export function applyPrefs() {
   r.style.setProperty('--ts', P.textScale / 100);
   const m = document.querySelector('meta[name="theme-color"]');
   if (m) m.content = P.theme === 'dia' ? '#EFE6D2' : P.theme === 'contraste' ? '#000000' : '#16262A';
+  setTimeout(() => import('./native.js').then(n => n.pintarBarras()), 30);
 }
 applyPrefs();

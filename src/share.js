@@ -1,6 +1,7 @@
 // Imágenes para compartir (frases, resumen del año y estante). Se dibujan en el dispositivo; nada se sube a ningún servidor.
 import { S, spineGeom } from './state.js';
 import { toast } from './ui.js';
+import { A, blobToB64 } from './native.js';
 
 const SERIF = "Newsreader, Georgia, serif", DISPLAY = "'Young Serif', Georgia, serif", SANS = "Figtree, system-ui, sans-serif";
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; };
@@ -73,6 +74,7 @@ export async function imgShelf(books, title, sub) {
 
 export async function shareImage(b, name, text) {
   if (!b) { toast('No se pudo crear la imagen'); return; }
+  if (A?.compartirImagen) { A.compartirImagen(name, await blobToB64(b), text || ''); return; }
   const file = new File([b], name, { type: 'image/png' });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }

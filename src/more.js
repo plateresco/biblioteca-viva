@@ -6,7 +6,9 @@ import { syncLabel, syncState, isEnabled, lastSync } from './sync.js';
 import { exportJSON, importJSON, exportCSV, readCSV, addImported } from './backup.js';
 import { fmtDur, daysSince } from './metrics.js';
 import { fallbackColors } from './color.js';
-import { checkReminder } from './reminder.js';
+import { checkReminder, syncNativeReminder } from './reminder.js';
+import { esApp } from './native.js';
+import { buscarActualizacion, ofrecerInstalar, versionActual } from './actualizar.js';
 import { imgShelf, shareImage } from './share.js';
 
 let sub = null;
@@ -25,6 +27,7 @@ const MENU = [
   ['atajos', 'Atajos y accesibilidad', () => 'Teclado, contraste, texto', 'keyboard'],
   ['ia', 'Recomendaciones con IA', () => 'Pregunta lista para copiar', 'spark'],
   ['ayuda', 'Ayuda', () => 'Primeros pasos', 'info'],
+  ...(esApp ? [['version', 'Actualizaciones', () => 'Versión ' + (versionActual()?.name || ''), 'download']] : []),
 ];
 
 export function drawMore(ctx) {
@@ -135,9 +138,9 @@ const PAGES = {
     $('#rsw', b).onclick = async () => {
       const on = !P.reminder.on; setPref('reminder', { ...P.reminder, on });
       if (on && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch { } }
-      checkReminder(ctx); redraw();
+      checkReminder(ctx); syncNativeReminder(); redraw();
     };
-    $('#rt', b).onchange = e => { setPref('reminder', { ...P.reminder, time: e.target.value || '21:30' }); checkReminder(ctx); };
+    $('#rt', b).onchange = e => { setPref('reminder', { ...P.reminder, time: e.target.value || '21:30' }); checkReminder(ctx); syncNativeReminder(); };
   },
   /* ---- Sincronización y copia ---- */
   sync(b, ctx, redraw) {
@@ -162,6 +165,15 @@ const PAGES = {
     b.innerHTML = `<div class="card"><h3>Para tu próxima lectura</h3><div class="sub">La app arma la pregunta con lo que marcaste como leído, en lectura y abandonado. Cópiala y pégala en la IA que prefieras.</div><textarea class="ask" id="ask" readonly aria-label="Pregunta para la IA">${esc(txt)}</textarea>
       <div class="row" style="margin-top:10px"><button class="btn" id="cp">${ic('copy')}Copiar pregunta</button><a class="btn ghost" href="https://www.perplexity.ai/" target="_blank" rel="noopener">Abrir Perplexity</a></div></div>`;
     $('#cp', b).onclick = async () => { try { await navigator.clipboard.writeText(txt); toast('Pregunta copiada'); } catch { $('#ask', b).select(); toast('Selecciónala y cópiala'); } };
+  },
+  version(b) {
+    const v = versionActual();
+    b.innerHTML = `<div class="card"><h3>Mi Biblioteca ${esc(v?.name || '')}</h3><div class="sub">Las versiones nuevas se publican en GitHub y se instalan desde aquí.</div><div class="row" style="margin-top:12px"><button class="btn" id="bu">Buscar actualización</button></div><div class="small" id="bm" style="margin-top:10px"></div></div>`;
+    $('#bu', b).onclick = async () => {
+      $('#bm', b).textContent = 'Buscando…';
+      try { const u = await buscarActualizacion(); if (u.nueva) { $('#bm', b).textContent = 'Hay una versión nueva.'; ofrecerInstalar(u); } else $('#bm', b).textContent = 'Ya tienes la última versión.'; }
+      catch (e) { $('#bm', b).textContent = e.message || 'No pude consultar. ¿Hay conexión?'; }
+    };
   },
   ayuda(b) {
     b.innerHTML = `<div class="card"><h3>Primeros pasos</h3><ol class="help"><li>Agrega un libro desde <b>Biblioteca</b>: un EPUB, el ISBN de uno de papel, o una lista CSV.</li><li>Toca un lomo para sacarlo del estante. Mantén presionado para arrastrarlo a otro lugar o piso.</li><li>Abre un EPUB y selecciona un texto: elige un color para subrayarlo y guardar la frase.</li><li>En <b>Hoy</b> verás tu meta, tu racha y el libro que sigues.</li><li>En <b>Más → Sincronización</b> conecta Google para ver todo igual en el PC y en el teléfono.</li></ol></div>`;

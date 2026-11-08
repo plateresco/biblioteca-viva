@@ -1,0 +1,75 @@
+name: Compilar APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['android/**', 'src/**', 'index.html', 'public/**', '.github/workflows/apk.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - name: Compilar la web para la app (rutas relativas a /assets/)
+        run: BASE_PATH=/assets/ npm run build
+
+      - name: Copiar la web dentro de la app
+        run: |
+          mkdir -p android/app/src/main/assets
+          rm -rf android/app/src/main/assets/*
+          cp -r dist/* android/app/src/main/assets/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Preparar la llave de firma
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/bv.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/bv.jks" >> "$GITHUB_ENV"
+
+      - name: Compilar
+        working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: >
+          gradle :app:assembleRelease --no-daemon
+          -PVERSION_CODE=${{ github.run_number }}
+          -PVERSION_NAME=1.${{ github.run_number }}
+          -PGOOGLE_CLIENT_ID=${{ vars.GOOGLE_ANDROID_CLIENT_ID }}
+
+      - name: Nombrar el APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk BibliotecaViva.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BibliotecaViva
+          path: BibliotecaViva.apk
+
+      - name: Publicar versión
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "v${{ github.run_number }}" BibliotecaViva.apk
+          --title "1.${{ github.run_number }}"
+          --notes "Versión ${{ github.run_number }} de la app de Android."

@@ -2,17 +2,21 @@
 // Esa carpeta solo la ve esta app: no aparece en tu Drive ni toca tus otros archivos.
 import * as db from './db.js';
 import { S, load, emit, byId } from './state.js';
+import { A } from './native.js';
+
+// Dentro de la app de Android el inicio de sesión es nativo: dura meses (token de renovación) y no abre ventanas emergentes.
+const NATIVE = !!(A && A.googleDisponible && A.googleDisponible());
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const API = 'https://www.googleapis.com/drive/v3', UP = 'https://www.googleapis.com/upload/drive/v3';
 const LS = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const setLS = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { } };
 
-export const getClientId = () => LS('bv-gcid') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+export const getClientId = () => NATIVE ? 'nativo' : LS('bv-gcid') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 export const setClientId = v => setLS('bv-gcid', v.trim() || null);
 export const isEnabled = () => LS('bv-sync-on') === '1';
 export const lastSync = () => +LS('bv-last-sync') || 0;
-export const disable = () => { setLS('bv-sync-on', null); token = null; };
+export const disable = () => { setLS('bv-sync-on', null); token = null; if (NATIVE) A.cerrarSesionGoogle(); };
 
 let token = null, exp = 0, syncing = false;
 let status = { state: 'idle', msg: '' };
@@ -31,7 +35,7 @@ export function syncLabel() {
 export const syncState = () => status.state;
 addEventListener('online', () => setStatus(status.state, status.msg));
 addEventListener('offline', () => setStatus(status.state, status.msg));
-export const hasToken = () => !!token && Date.now() < exp - 30000;
+export const hasToken = () => NATIVE ? A.sesionGoogle() : (!!token && Date.now() < exp - 30000);
 export const isSyncing = () => syncing;
 
 function loadGsi() {
@@ -42,7 +46,25 @@ function loadGsi() {
     document.head.appendChild(s);
   });
 }
+function nativeToken() {
+  return new Promise((res, rej) => {
+    const id = Math.random().toString(36).slice(2); window.__gtokens = window.__gtokens || {}; window.__gtokens[id] = { res, rej };
+    window.__gtoken = (i, t, err) => { const h = window.__gtokens[i]; if (!h) return; delete window.__gtokens[i]; err ? h.rej(new Error(err)) : h.res(t); };
+    A.tokenGoogle(id);
+  });
+}
+async function ensureNative() { if (!token || Date.now() > exp - 60000) { token = await nativeToken(); exp = Date.now() + 50 * 60000; } }
+async function connectNative(interactive) {
+  if (A.sesionGoogle()) { try { await ensureNative(); setLS('bv-sync-on', '1'); return token; } catch (e) { if (!interactive) throw e; } }
+  if (!interactive) throw new Error('Falta iniciar sesión con Google.');
+  return new Promise((res, rej) => {
+    window.__googleListo = async () => { try { await ensureNative(); setLS('bv-sync-on', '1'); res(token); } catch (e) { rej(e); } };
+    window.__googleError = m => rej(new Error(m || 'No se pudo conectar con Google'));
+    A.iniciarSesionGoogle();
+  });
+}
 export async function connect(interactive = true) {
+  if (NATIVE) return connectNative(interactive);
   const cid = getClientId();
   if (!cid) throw new Error('Falta el ID de cliente de Google (ver la guía).');
   await loadGsi();
@@ -57,6 +79,7 @@ export async function connect(interactive = true) {
 }
 
 async function api(path, opts = {}, base = API) {
+  if (NATIVE) await ensureNative();
   const r = await fetch(base + path, { ...opts, headers: { Authorization: 'Bearer ' + token, ...(opts.headers || {}) } });
   if (!r.ok) { if (r.status === 401) token = null; throw new Error(`Google Drive respondió ${r.status}. ${(await r.text()).slice(0, 140)}`); }
   return r;

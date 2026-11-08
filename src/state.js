@@ -90,6 +90,7 @@ export async function moveBook(fromId, toId) {
 // Páginas leídas por día (alimenta las cifras).
 export async function addPages(bookId, n) {
   if (n <= 0) return;
+  try { window.AndroidApp?.marcarLeidoHoy(today()); } catch { }
   const d = today();
   let e = S.log.find(l => l.bookId === bookId && l.date === d);
   if (e) e.pages += n; else { e = { bookId, date: d, pages: n }; S.log.push(e); }
@@ -154,6 +155,7 @@ export async function removePiso(id) {
 // Tiempo de lectura: segundos por día y por hora del día (alimenta "¿A qué hora lees?").
 export async function addTime(bookId, secs) {
   if (secs <= 0) return;
+  try { window.AndroidApp?.marcarLeidoHoy(today()); } catch { }
   const d = today(), h = new Date().getHours();
   let e = S.log.find(l => l.bookId === bookId && l.date === d);
   if (!e) { e = { bookId, date: d, pages: 0 }; S.log.push(e); }

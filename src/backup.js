@@ -3,7 +3,10 @@ import * as db from './db.js';
 import { S, ST, addBook, byId, load, emit, saveMeta, saveBook, saveNote, today } from './state.js';
 import { fallbackColors } from './color.js';
 
+import { A, blobToB64 } from './native.js';
+
 function download(name, text, type) {
+  if (A?.guardarArchivo) { blobToB64(new Blob([text], { type })).then(b => A.guardarArchivo(name, type, b)); return; }
   const u = URL.createObjectURL(new Blob([text], { type })), a = document.createElement('a');
   a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
 }
