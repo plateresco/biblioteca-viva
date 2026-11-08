@@ -122,8 +122,19 @@ public class MainActivity extends Activity {
 
     @Override protected void onNewIntent(Intent i) { super.onNewIntent(i); setIntent(i); manejarIntent(i); }
 
+    void googleListo() { js("window.__googleListo&&window.__googleListo()"); }
+    void googleError(String m) { js("window.__googleError&&window.__googleError(" + q(m) + ")"); }
+
     @Override protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == AuthGoogle.REQ) {
+            if (res != RESULT_OK || data == null) { googleError("Cancelaste el inicio de sesion."); return; }
+            try {
+                AuthGoogle.guardar(this, com.google.android.gms.auth.api.identity.Identity.getAuthorizationClient(this).getAuthorizationResultFromIntent(data));
+                googleListo();
+            } catch (Exception e) { googleError(String.valueOf(e.getMessage())); }
+            return;
+        }
         if (req == REQ_ARCHIVO && chooserCb != null) {
             Uri[] out = null;
             if (res == RESULT_OK && data != null) {
@@ -153,14 +164,6 @@ public class MainActivity extends Activity {
         if (i == null) return;
         Uri d = i.getData(), st = i.getParcelableExtra(Intent.EXTRA_STREAM);
         String act = i.getAction();
-        if (Intent.ACTION_VIEW.equals(act) && d != null && getPackageName().equals(d.getScheme())) {
-            final Uri red = d;
-            new Thread(() -> {
-                try { AuthGoogle.canje(this, red); js("window.__googleListo&&window.__googleListo()"); }
-                catch (Exception e) { js("window.__googleError&&window.__googleError(" + q(String.valueOf(e.getMessage())) + ")"); }
-            }).start();
-            return;
-        }
         Uri archivo = Intent.ACTION_SEND.equals(act) ? st : (Intent.ACTION_VIEW.equals(act) ? d : null);
         if (archivo != null) {
             final Uri f = archivo;

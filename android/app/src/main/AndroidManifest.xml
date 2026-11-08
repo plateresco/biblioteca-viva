@@ -45,13 +45,6 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" android:mimeType="application/octet-stream" android:pathPattern=".*\\.epub" />
             </intent-filter>
-            <!-- Regreso del inicio de sesion de Google -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.plateresco.bibliotecaviva" android:path="/oauth2redirect" />
-            </intent-filter>
         </activity>
 
         <receiver android:name=".RecordatorioReceiver" android:exported="false" />
