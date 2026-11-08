@@ -1,0 +1,9 @@
+{
+  "name": "mi-biblioteca-viva",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": { "dev": "vite --port 5180 --host", "build": "vite build", "preview": "vite preview --port 5181 --host" },
+  "dependencies": { "epubjs": "0.3.93" },
+  "devDependencies": { "vite": "^6.0.0", "vite-plugin-pwa": "^0.21.0" }
+}
