@@ -33,8 +33,8 @@ if (!window.AndroidApp) registerSW({ immediate: true });   // dentro de la app l
 
 const TABS = [['hoy', 'Hoy', 'home'], ['lib', 'Biblioteca', 'shelf'], ['fr', 'Frases', 'quote'], ['stats', 'Cifras', 'chart'], ['more', 'Más', 'more']];
 // Las pantallas menos usadas y el lector (que trae la librería de EPUB) se descargan recién cuando se necesitan.
-const lazy = (mod, fn) => c => import(mod).then(x => x[fn](c));
-const DRAW = { hoy: drawHoy, lib: drawLib, fr: lazy('./frases.js', 'drawFrases'), stats: lazy('./cifras.js', 'drawStats'), more: lazy('./more.js', 'drawMore') };
+// Cada pantalla pesada se carga cuando se abre. Las rutas deben ser literales: así Vite las empaqueta como archivos propios.
+const DRAW = { hoy: drawHoy, lib: drawLib, fr: c => import('./frases.js').then(x => x.drawFrases(c)), stats: c => import('./cifras.js').then(x => x.drawStats(c)), more: c => import('./more.js').then(x => x.drawMore(c)) };
 const openReader = (...a) => import('./reader.js').then(m => m.openReader(...a));
 const ctx = {
   openReader, openSheet: id => openCover(id, { openReader }), add: openAdd,
