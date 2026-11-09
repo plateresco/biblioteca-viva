@@ -30,6 +30,7 @@ const MENU = [
   ['atajos', 'Atajos y accesibilidad', () => 'Teclado, contraste, texto', 'keyboard'],
   ['ia', 'Recomendaciones con IA', () => 'Pregunta lista para copiar', 'spark'],
   ['ayuda', 'Ayuda', () => 'Primeros pasos', 'info'],
+  ...(esApp ? [['vozneuronal', 'Voz neuronal', () => 'Voces sin conexión, más naturales', 'phones']] : []),
   ['diagnostico', 'Diagnóstico', () => { try { const n = JSON.parse(localStorage.getItem('bv-errs') || '[]').length; return n ? `${n} errores registrados` : 'Sin errores registrados'; } catch { return ''; } }, 'info'],
   ...(esApp ? [['version', 'Actualizaciones', () => 'Versión ' + (versionActual()?.name || ''), 'download']] : []),
 ];
@@ -214,6 +215,10 @@ const PAGES = {
       <div class="row" style="margin-top:10px"><button class="btn" id="dc">Copiar</button><button class="btn ghost" id="dl">Borrar registro</button></div></div>`;
     $('#dc', b).onclick = async () => { try { await navigator.clipboard.writeText(txt); toast('Copiado'); } catch { $('#dg', b).select(); toast('Selecciona y copia'); } };
     $('#dl', b).onclick = () => { try { localStorage.removeItem('bv-errs'); } catch { } toast('Registro borrado'); };
+  },
+  vozneuronal(b) {
+    b.innerHTML = `<div class="card"><h3>Voz neuronal</h3><div class="sub">Se usa al leer en voz alta dentro del lector. Elige una voz para descargarla y activarla.</div><div id="vneu" style="margin-top:12px"></div></div>`;
+    Promise.all([import('./voz.js'), import('./reader.js')]).then(([v, r]) => v.dibujarVozNeuronal($('#vneu', b), r.rprefs, r.setRPref));
   },
   version(b) {
     const v = versionActual();

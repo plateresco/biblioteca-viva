@@ -400,3 +400,9 @@ html[data-dens="compacta"] .view{gap:10px}
 .hoyord .it.off b{opacity:.45;text-decoration:line-through}
 
 .lrow,.btile{touch-action:pan-y}
+
+.vneu{display:grid;gap:10px}
+.vneu .vrow{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid rgba(127,127,127,.25);padding-top:10px}
+.vneu .vopt{display:flex;align-items:center;gap:8px;font-size:14px;min-width:0}
+.vneu .btn{padding:7px 12px;font-size:13px;flex:none}
+#reader .vneu .btn.ghost{color:inherit}

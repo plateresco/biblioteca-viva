@@ -10,6 +10,7 @@ const prefs = (() => { try { return JSON.parse(localStorage.getItem('bv-rprefs')
 const setPref = (k, v) => { prefs[k] = v; try { localStorage.setItem('bv-rprefs', JSON.stringify(prefs)); } catch { } };
 
 let cur = null;
+export const rprefs = prefs, setRPref = setPref;
 export function closeReader() { if (cur) cur.close(); }
 
 export async function openReader(id, cfiTarget) {
@@ -192,7 +193,10 @@ export async function openReader(id, cfiTarget) {
 
   // Voz: en la app de Android se usa la voz nativa (Google); en el navegador, la del propio navegador.
   const AN = window.AndroidApp, nativa = !!(AN && AN.ttsDisponible && AN.ttsDisponible());
-  const hayVoz = () => nativa || ('speechSynthesis' in window);
+  // Voz neuronal sin conexión (si está instalada y elegida); si no, la voz de Android o la del navegador.
+  const neuralId = () => { try { return AN && AN.neuralLista && prefs.neural && AN.neuralLista(prefs.neural) ? prefs.neural : null; } catch { return null; } };
+  const propia = () => nativa || !!neuralId();      // las dos avisan desde Android cuando termina cada frase
+  const hayVoz = () => nativa || !!neuralId() || ('speechSynthesis' in window);
   const voices = () => {
     try {
       if (nativa) return JSON.parse(AN.ttsVoces() || '[]').sort((a, b) => (b.net - a.net) || (b.q - a.q) || a.name.localeCompare(b.name));
@@ -211,6 +215,7 @@ export async function openReader(id, cfiTarget) {
     <div class="row"><label class="chk"><input type="checkbox" id="just" ${prefs.just ? 'checked' : ''}> Justificado</label><label class="chk"><input type="checkbox" id="focus" ${prefs.focus ? 'checked' : ''}> Modo enfoque</label><label class="chk"><input type="checkbox" id="anim" ${prefs.anim !== false ? 'checked' : ''}> Animar páginas</label></div>
     <label>Brillo de la pantalla <span class="small" id="brv"></span><input type="range" id="br" min="0" max="75" value="${Math.round((prefs.dim || 0) * 100)}"></label>
     <label>Voz para leer en voz alta<select id="vsel">${voices().map(v => `<option value="${esc(v.name)}" ${v.name === prefs.voice ? 'selected' : ''}>${esc(nativa ? v.name.replace(/-/g, ' ') : v.name)} (${esc(v.lang)})${v.net ? ' · alta calidad' : ''}</option>`).join('') || '<option value="">Voz predeterminada del dispositivo</option>'}</select></label>
+    <div id="vneu"></div>
     <label>Velocidad<select id="rate">${RATES.map(r => `<option value="${r}" ${(prefs.rate || 1) === r ? 'selected' : ''}>${String(r).replace('.', ',')}x</option>`).join('')}</select></label></div>`, () => {
     $$('[data-th]', root).forEach(b2 => b2.onclick = () => { applyTheme(b2.dataset.th); $$('[data-th]', root).forEach(x => x.setAttribute('aria-selected', x === b2)); });
     $('#autoN', root).onchange = e => { setPref('autoNoche', e.target.checked); prefs.autoNoche = e.target.checked; };
@@ -225,6 +230,7 @@ export async function openReader(id, cfiTarget) {
     const brt = () => { $('#brv', root).textContent = Math.round((1 - (prefs.dim || 0) / .75 * .8) * 100) + ' %'; }; brt();
     $('#br', root).oninput = e => { setPref('dim', e.target.value / 100); aplicarBrillo(); brt(); };
     $('#vsel', root).onchange = e => setPref('voice', e.target.value);
+    import('./voz.js').then(m => m.dibujarVozNeuronal($('#vneu', root), prefs, setPref));
     $('#rate', root).onchange = e => { setPref('rate', +e.target.value); prefs.rate = +e.target.value; actualizarChips(); };
   });
 
@@ -296,7 +302,7 @@ export async function openReader(id, cfiTarget) {
     } catch { }
   }
   function quitarMarca() { if (tts.marca) { try { rendition.annotations.remove(tts.marca, 'highlight'); } catch { } tts.marca = null; } }
-  const cancelarVoz = () => { try { nativa ? AN.ttsParar() : speechSynthesis.cancel(); } catch { } };
+  const cancelarVoz = () => { try { if (AN?.neuralParar) AN.neuralParar(); } catch { } try { nativa ? AN.ttsParar() : speechSynthesis.cancel(); } catch { } };
   function saltarA(e) { // tocar una frase mientras se lee: sigue desde ahí
     try {
       const d = e.view.document, cr = d.caretRangeFromPoint ? d.caretRangeFromPoint(e.clientX, e.clientY) : null; if (!cr) return;
@@ -314,6 +320,33 @@ export async function openReader(id, cfiTarget) {
   $('#lPrev', root).onclick = () => { if (tts.on) { tts.jump = Math.max(0, tts.i - 1); cancelarVoz(); } };
   $('#lNext', root).onclick = () => { if (tts.on) { tts.jump = Math.min(tts.fr.length, tts.i + 1); cancelarVoz(); } };
   const esperar = ms => new Promise(r => setTimeout(r, ms));
+  let ttsId = 0;
+  // Dice una frase y devuelve true si terminó sin que la hayan cancelado. Si alguna voz propia falla, cae a la siguiente.
+  function speak(text, token) {
+    return new Promise(res => {
+      if (neuralId()) {
+        const id = String(++ttsId);
+        window.__ttsFin = (i, st) => {
+          if (i !== id) return;
+          if (st === 0) { prefs.neural = ''; toast('La voz neuronal falló; se usa la voz de Android.'); tts.jump = tts.i; }   // repite la frase con otra voz
+          tts.cortada = st === 2; res(token === tts.token);
+        };
+        AN.neuralHablar(id, neuralId(), text, tts.fr?.[tts.i + 1]?.text || '', prefs.rate || 1); return;
+      }
+      if (nativa) {
+        const id = String(++ttsId);
+        window.__ttsFin = (i, st) => { if (i === id) { tts.cortada = st === 2; res(token === tts.token); } };
+        const v = voices(), pick = v.find(x => x.name === prefs.voice) || v[0];
+        AN.ttsHablar(id, text, pick ? pick.name : '', prefs.rate || 1); return;
+      }
+      const u = new SpeechSynthesisUtterance(text);
+      const v = voices(), pick = v.find(x => x.name === prefs.voice) || v[0];
+      if (pick) { u.voice = speechSynthesis.getVoices().find(x => x.name === pick.name) || null; u.lang = pick.lang; } else u.lang = 'es-ES';
+      u.rate = prefs.rate || 1;
+      u.onend = u.onerror = () => res(token === tts.token);
+      speechSynthesis.speak(u);
+    });
+  }
   async function listenLoop() {
     const token = ++tts.token; tts.on = true; tts.pausa = false; tts.jump = null; $('#listen', root).hidden = false;
     $('#lPlay', root).innerHTML = ic('pause'); actualizarChips(); estadoNativo();
@@ -327,7 +360,7 @@ export async function openReader(id, cfiTarget) {
         tts.i = i; marcar(tts.fr[i]); $('#lInfo', root).textContent = tts.fr[i].text.slice(0, 70); estadoNativo();
         if (!(await speak(tts.fr[i].text, token))) return;
         if (tts.jump !== null) { tts.cortada = false; i = tts.jump - 1; tts.jump = null; continue; }
-        if (nativa && tts.cortada) {                      // pausa en la voz nativa: se espera y se repite la frase
+        if (propia() && tts.cortada) {                      // pausa en la voz nativa: se espera y se repite la frase
           tts.cortada = false;
           while (tts.pausa && tts.on && token === tts.token) await esperar(150);
           if (!tts.on || token !== tts.token) return;
@@ -353,8 +386,8 @@ export async function openReader(id, cfiTarget) {
   $('#rListen', root).onclick = () => { if (!hayVoz()) return toast('Este dispositivo no tiene lectura en voz alta'); tts.on ? stopTTS() : listenLoop(); };
   $('#lStop', root).onclick = stopTTS;
   $('#lPlay', root).onclick = () => {
-    if (nativa) {
-      if (tts.pausa) { tts.pausa = false; $('#lPlay', root).innerHTML = ic('pause'); } else { tts.pausa = true; AN.ttsParar(); $('#lPlay', root).innerHTML = ic('play'); }
+    if (propia()) {
+      if (tts.pausa) { tts.pausa = false; $('#lPlay', root).innerHTML = ic('pause'); } else { tts.pausa = true; cancelarVoz(); $('#lPlay', root).innerHTML = ic('play'); }
       estadoNativo(); return;
     }
     if (speechSynthesis.paused) { speechSynthesis.resume(); tts.pausa = false; $('#lPlay', root).innerHTML = ic('pause'); }

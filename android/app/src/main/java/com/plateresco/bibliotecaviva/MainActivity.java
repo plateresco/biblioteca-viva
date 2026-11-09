@@ -57,6 +57,8 @@ public class MainActivity extends Activity {
     static final int REQ_ARCHIVO = 41, REQ_NOTIF = 42;
 
     static MainActivity instancia;
+    VozNeuronal neural;
+    VozNeuronal vn() { if (neural == null) neural = new VozNeuronal(this, c -> js(c)); return neural; }
     static final int REQ_FOTO = 44;
     Uri fotoUri;
     String pendienteAtajo = null;
@@ -139,7 +141,7 @@ public class MainActivity extends Activity {
         manejarIntent(getIntent());
     }
 
-    @Override protected void onDestroy() { if (instancia == this) instancia = null; try { if (voz != null) { voz.stop(); voz.shutdown(); } } catch (Exception ignored) { } super.onDestroy(); }
+    @Override protected void onDestroy() { if (instancia == this) instancia = null; try { if (neural != null) neural.cerrar(); } catch (Throwable ignored) { } try { if (voz != null) { voz.stop(); voz.shutdown(); } } catch (Exception ignored) { } super.onDestroy(); }
 
     @Override protected void onNewIntent(Intent i) { super.onNewIntent(i); setIntent(i); manejarIntent(i); }
 
@@ -294,6 +296,16 @@ public class MainActivity extends Activity {
             });
         }
         @JavascriptInterface public void ttsParar() { runOnUiThread(() -> { try { if (voz != null) voz.stop(); } catch (Exception ignored) { } }); }
+        /* Voz neuronal sin conexion (Piper): se descarga una vez y funciona sin internet */
+        @JavascriptInterface public String neuralCatalogo() { try { return vn().catalogo(); } catch (Throwable e) { return "[]"; } }
+        @JavascriptInterface public boolean neuralLista(String id) { try { return vn().lista(id); } catch (Throwable e) { return false; } }
+        @JavascriptInterface public void neuralDescargar(String id) { try { vn().descargar(id); } catch (Throwable e) { js("window.__vozError&&window.__vozError(" + q(id) + "," + q("Esta version no incluye la voz neuronal.") + ")"); } }
+        @JavascriptInterface public void neuralBorrar(String id) { try { vn().quitar(id); } catch (Throwable ignored) { } }
+        @JavascriptInterface public void neuralHablar(String idUtt, String voz, String texto, String sig, float vel) {
+            try { vn().hablar(idUtt, voz, texto, sig, vel); } catch (Throwable e) { js("window.__ttsFin&&window.__ttsFin(" + q(idUtt) + ",0)"); }
+        }
+        @JavascriptInterface public void neuralParar() { try { if (neural != null) neural.parar(); } catch (Throwable ignored) { } }
+
         /* Lectura en voz alta con la pantalla apagada: notificacion de reproductor */
         @JavascriptInterface public void lecturaEstado(final boolean on, final boolean pausa, final String titulo, final String frase) {
             runOnUiThread(() -> {

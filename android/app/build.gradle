@@ -10,6 +10,7 @@ android {
         applicationId "com.plateresco.bibliotecaviva"
         minSdk 24
         targetSdk 34
+        ndk { abiFilters "arm64-v8a" }     // la voz neuronal trae librerias nativas pesadas; solo para telefonos de 64 bits
         versionCode = Integer.parseInt((project.findProperty("VERSION_CODE") ?: "1").toString())
         versionName = (project.findProperty("VERSION_NAME") ?: "1.0").toString()
         // ID de cliente de Google (tipo Android) para el inicio de sesion nativo. No es un secreto.
@@ -50,6 +51,9 @@ dependencies {
     implementation "com.google.android.gms:play-services-auth:21.2.0"
     // Reconocimiento de texto en el telefono (para escanear paginas de libros de papel)
     implementation "com.google.mlkit:text-recognition:16.0.1"
+    // Voz neuronal sin conexion (sherpa-onnx). El flujo de GitHub baja el .aar a app/libs antes de compilar.
+    implementation fileTree(dir: "libs", include: ["*.aar"])
+    implementation "org.apache.commons:commons-compress:1.21"
     // Escaner de codigos de barras de Google (no pide permiso de camara)
     implementation "com.google.android.gms:play-services-code-scanner:16.1.0"
 }

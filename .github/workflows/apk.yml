@@ -30,6 +30,12 @@ jobs:
           rm -rf android/app/src/main/assets/*
           cp -r dist/* android/app/src/main/assets/
 
+      - name: Librería de voz neuronal (sherpa-onnx)
+        run: |
+          mkdir -p android/app/libs
+          curl -fL --retry 3 -o android/app/libs/sherpa-onnx.aar https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.40/sherpa-onnx-1.12.40.aar
+          ls -l android/app/libs
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
