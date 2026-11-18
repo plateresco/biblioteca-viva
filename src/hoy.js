@@ -4,19 +4,21 @@ import { $, $$, esc, ic, toast, reduce, ilustVacia } from './ui.js';
 import { pagesToday, streak, weekDots, leftText, pace, minutesToday, fmtDur, lastReadOf, daysSince } from './metrics.js';
 import { reminderDue } from './reminder.js';
 import { sugerencias, FILTROS } from './sugerir.js';
+import { visible } from './bloqueo.js';
+import { RETOS, retosActivos, cfgReto } from './retos.js';
 
 // Sesión de lectura manual (para libros de papel o audiolibros; con EPUB el lector mide el tiempo solo)
 const sess = { running: false, sec: 0, pages: 0, bookId: null, iv: null };
 const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 
 export function currentBook() {
-  const ing = S.books.filter(b => b.s === 'leyendo').sort((a, b) => (lastReadOf(b.id) || b.st || '').localeCompare(lastReadOf(a.id) || a.st || '')).reverse();
-  return ing[0] || S.books.find(b => b.s === 'porleer') || null;
+  const ing = S.books.filter(b => b.s === 'leyendo' && visible(b)).sort((a, b) => (lastReadOf(b.id) || b.st || '').localeCompare(lastReadOf(a.id) || a.st || '')).reverse();
+  return ing[0] || S.books.find(b => b.s === 'porleer' && visible(b)) || null;
 }
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
-export const HOY_CARDS = [['cont', 'Seguir leyendo'], ['meta', 'Meta de hoy'], ['semana', 'Esta semana'], ['sesion', 'Sesión de lectura'], ['ritmo', 'Ritmo para terminar'], ['sig', 'Siguiente lectura'], ['retomar', 'Retomar'], ['frase', 'Frase de tus libros']];
-const CLAVES = { 'Seguir leyendo': 'cont', 'Meta de hoy': 'meta', 'Esta semana': 'semana', 'Sesión de lectura': 'sesion', 'Ritmo para terminar': 'ritmo', 'Siguiente lectura': 'sig', 'Retomar': 'retomar', 'Frase de tus libros': 'frase' };
+export const HOY_CARDS = [['cont', 'Seguir leyendo'], ['meta', 'Meta de hoy'], ['semana', 'Esta semana'], ['sesion', 'Sesión de lectura'], ['ritmo', 'Ritmo para terminar'], ['retos', 'Retos'], ['sig', 'Siguiente lectura'], ['retomar', 'Retomar'], ['frase', 'Frase de tus libros']];
+const CLAVES = { 'Seguir leyendo': 'cont', 'Meta de hoy': 'meta', 'Esta semana': 'semana', 'Sesión de lectura': 'sesion', 'Ritmo para terminar': 'ritmo', 'Retos': 'retos', 'Siguiente lectura': 'sig', 'Retomar': 'retomar', 'Frase de tus libros': 'frase' };
 // Orden y tarjetas escondidas elegidos en Apariencia.
 function ordenarHoy(v) {
   const cards = [...v.querySelectorAll(':scope .card.hc')]; if (!cards.length) return;
@@ -31,6 +33,7 @@ export function drawHoy(ctx) {
   const q = S.notes.length ? S.notes[S.ui.qi % S.notes.length] : null;
   const dots = weekDots(), st = streak();
   const sugs = sugerencias();
+  const retosAct = RETOS.filter(r => retosActivos().includes(r.id));
   if (!sess.bookId || !byId(sess.bookId)) sess.bookId = cur?.id ?? null;
   const cu = cur && coverUrl(cur);
   const sessBooks = S.books.filter(b => b.s === 'leyendo' || b.s === 'porleer');
@@ -56,6 +59,7 @@ export function drawHoy(ctx) {
      <div class="row2" style="margin-top:10px"><span class="sub">Páginas leídas</span><div class="stepper"><button id="pgm" aria-label="Menos">−</button><output id="pgo">${sess.pages}</output><button id="pgp" aria-label="Más">+</button></div></div></div>
    ${cur ? `<div class="card hc"><h3>Ritmo para terminar ${esc(cur.t)}</h3><div class="sub">Te quedan ${Math.max(0, cur.p - (cur.r || 0))} de ${cur.p} páginas.</div>
      <div class="ctl2"><span>Quiero terminarlo en</span><input id="rdays" type="range" min="3" max="60" value="21" aria-label="Días"><output id="rdo">21 días</output></div><div id="rout"></div></div>` : ''}
+   ${retosAct.length ? `<div class="card hc"><h3>Retos</h3>${retosAct.map(r => { const c = r.cfg ? (cfgReto(r.id) ?? r.def) : null, x = r.calc(c); return `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><b>${r.n}</b><span class="sub">${x.txt}</span></div><div class="pbar" style="margin-top:5px"><i style="width:${Math.min(100, Math.round(x.a / Math.max(1, x.t) * 100))}%"></i></div></div>`; }).join('')}</div>` : ''}
    ${sugs.length ? `<div class="card hc sigc"><h3>Siguiente lectura</h3><div class="sub">Calculado en tu teléfono con lo que ya sabes de tus libros.</div><div class="sgch" id="sgch"></div><div id="sgl"></div></div>` : ''}
    ${retomar.length ? `<div class="card hc"><h3>Retomar</h3>${retomar.map(b => `<div class="resume" data-id="${b.id}"><span class="rcov" style="--c1:${b.c1 || '#555'};${coverUrl(b) ? `--art:url('${coverUrl(b)}')` : ''}"></span><div style="min-width:0;flex:1"><b>${esc(b.t)}</b><span>${ST[b.s].n}${lastReadOf(b.id) ? ` · hace ${daysSince(lastReadOf(b.id))} días` : ''}</span></div><button class="go" data-r="${b.id}">Abrir</button></div>`).join('')}</div>` : ''}
    ${q ? `<div class="card hc quotec"><h3>Frase de tus libros</h3><q>“${esc(q.text)}”</q><div class="sub">${esc(q.title)}</div></div>` : ''}

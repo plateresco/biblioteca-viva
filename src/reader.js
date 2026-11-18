@@ -301,7 +301,7 @@ export async function openReader(id, cfiTarget) {
     bar.innerHTML = `<span>Subrayar</span>${Object.keys(COL).map(c => `<button class="hdotb" data-c="${c}" style="background:${COL[c]}" aria-label="Subrayar en ${c}"></button>`).join('')}<button class="defbtn" data-def>Definir</button>`;
     $('.vwrap', root).appendChild(bar);
     bar.onclick = e => {
-      if (e.target.closest('[data-def]')) { const w = selText.split(' ')[0].replace(/[^\p{L}-]/gu, '').toLowerCase(), u = 'https://es.wiktionary.org/wiki/' + encodeURIComponent(w); if (window.AndroidApp?.abrirExterno) window.AndroidApp.abrirExterno(u); else window.open(u, '_blank'); return; }
+      if (e.target.closest('[data-def]')) { const pal = selText.split(/\s+/)[0]; import('./glosario.js').then(m => m.definir(pal, selText, b)); return; }
       const c = e.target.closest('[data-c]'); if (c) saveHL(c.dataset.c);
     };
     barT = setTimeout(hideSave, 10000);

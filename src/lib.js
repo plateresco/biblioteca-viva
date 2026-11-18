@@ -10,7 +10,8 @@ import { openPalette } from './palette.js';
 import { OBJ, PISO_H } from './objects.js';
 import { haptic } from './native.js';
 import { ordenar, series as seriesMapa } from './orden.js';
-const lista = () => ordenar(S.books, P.sort);
+import { visible } from './bloqueo.js';
+const lista = () => ordenar(S.books.filter(visible), P.sort);
 const ORDENES = [['orden', 'Mi orden'], ['color', 'Color'], ['serie', 'Serie'], ['autor', 'Autor']];
 import { coverUrl } from './state.js';
 
@@ -37,7 +38,7 @@ function spineHTML(b, extra = '') {
   const u = S.ui;
   return `<button class="spine ${spineStyleClass(b)} ${u.pick === b.id ? 'pick' : ''} ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''} ${hit(b) ? 'hit' : ''} ${u.lastOut === b.id ? 'lean' : ''} ${extra}" data-id="${b.id}" style="${spineStyle(b)}" aria-label="${esc(b.t)}, ${ST[b.s].n}">${spineInner(b)}</button>`;
 }
-const pisoBooks = (p, first) => ordenar(S.books.filter(b => b.piso === p.id || (first && !S.meta.pisos.some(x => x.id === b.piso))), P.sort);
+const pisoBooks = (p, first) => ordenar(S.books.filter(b => visible(b) && (b.piso === p.id || (first && !S.meta.pisos.some(x => x.id === b.piso)))), P.sort);
 // Con orden por serie, cada saga lleva una pequeña separación y su nombre.
 function conSeries(bs, mk) {
   if (P.sort !== 'serie') return bs.map(b => mk(b)).join('');

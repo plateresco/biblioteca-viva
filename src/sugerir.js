@@ -2,6 +2,7 @@
 import { S } from './state.js';
 import { series } from './orden.js';
 import { pace } from './metrics.js';
+import { visible } from './bloqueo.js';
 
 const dias = f => f ? Math.floor((Date.now() - new Date(f + 'T00:00:00')) / 864e5) : 0;
 const bajo = s => String(s || '').trim().toLowerCase();
@@ -10,7 +11,7 @@ export const FILTROS = [['todo', 'Todo'], ['corta', 'Corto'], ['autor', 'Mismo a
 
 /** Devuelve [{ b, why, k: [tipos] }], los mejores primero. */
 export function sugerencias() {
-  const porLeer = S.books.filter(b => b.s === 'porleer' && !b.loan);
+  const porLeer = S.books.filter(b => b.s === 'porleer' && !b.loan && visible(b));
   if (!porLeer.length) return [];
   const mapa = series(), ppd = Math.max(8, Math.round(pace() / 60 * 25));           // páginas por día que lees en promedio, aprox.
   const buenos = S.books.filter(b => b.s === 'leido' && (b.rating || 0) >= 4);

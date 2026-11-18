@@ -536,3 +536,27 @@ svg.vacia{width:120px;height:auto;display:block;margin:0 auto 10px;opacity:.95}
 .rskel .skel{background:linear-gradient(90deg,rgba(127,127,127,.18),rgba(127,127,127,.08),rgba(127,127,127,.18));background-size:200% 100%}
 
 .rcov.big{position:relative}.rcov.big i{position:absolute;inset:10px 8px;display:grid;place-items:center;text-align:center;font:400 12px/1.2 var(--f-display);font-style:normal;color:#F3E6C2;text-shadow:0 1px 2px rgba(0,0,0,.5);overflow:hidden}
+
+/* ---- Retos, logros, glosario, bloqueo, Kindle ---- */
+.reto{border-top:1px solid var(--line);padding:12px 0}.reto:first-of-type{border-top:0}
+.reto .rh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.sw3{width:40px;height:24px;border-radius:99px;background:var(--line);position:relative;flex:none;border:0;cursor:pointer}
+.sw3::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform var(--t-fast,.12s)}
+.sw3[aria-pressed="true"]{background:var(--accent)}.sw3[aria-pressed="true"]::after{transform:translateX(16px)}
+.badges2{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:12px;margin-top:12px}
+.bdg2{display:grid;gap:3px;justify-items:center;text-align:center}.bdg2 b{font-size:12.5px}.bdg2 small{font-size:10.5px;color:var(--muted);line-height:1.25}
+.bdg2 i{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;font:400 19px var(--f-display);font-style:normal;background:linear-gradient(135deg,#E4B861,#9A6B14);color:#2A1E08;box-shadow:0 6px 12px -6px rgba(0,0,0,.5)}
+.bdg2.off i{background:var(--surface2);color:var(--muted);box-shadow:none;border:1px dashed var(--line)}.bdg2.off{opacity:.8}
+.gdef{white-space:pre-wrap;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;font-size:14px;line-height:1.5;max-height:42vh;overflow:auto}
+.gdef:empty{display:none}
+.kcrow{display:flex;gap:10px;align-items:flex-start;padding:8px 4px;border-top:1px solid var(--line);cursor:pointer}.kcrow small{display:block;color:var(--muted);font-size:12px}
+.vrow2{display:grid;grid-template-columns:minmax(0,1fr) 90px 34px;gap:8px;align-items:center;margin:7px 0;font-size:13px}.vrow2 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vrow2 b{text-align:right}
+html.bloq body>*:not(#lockscr){visibility:hidden}
+#lockscr{position:fixed;inset:0;z-index:9999;background:var(--r-bg,#16262A);color:#EDE6D6;display:grid;place-items:center;padding:20px}
+#lockscr .lk{display:grid;gap:16px;justify-items:center;width:min(100%,300px)}
+#lockscr .lkt{font:400 24px var(--f-display)}#lockscr .lkm{font-size:14px;color:#A9B7B3;text-align:center;min-height:20px}
+#lockscr .lkd{display:flex;gap:12px}#lockscr .lkd i{width:13px;height:13px;border-radius:50%;border:1.8px solid #62B7AB}#lockscr .lkd i.f{background:#62B7AB}
+#lockscr .lkp{display:grid;grid-template-columns:repeat(3,68px);gap:12px}
+#lockscr .lkp button{width:68px;height:68px;border-radius:50%;background:rgba(255,255,255,.08);color:inherit;font:600 22px var(--f-body);border:0}
+#lockscr .lkp button:active{background:rgba(255,255,255,.2)}
+#lockscr .lkc{background:none;border:0;color:#A9B7B3;font-size:14px;padding:8px}

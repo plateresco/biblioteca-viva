@@ -1,3 +1,4 @@
+import { visible } from './bloqueo.js';
 // Búsqueda global (Ctrl K o /): libros, frases y acciones.
 import { S, byId, coverUrl } from './state.js';
 import { THEMES, P, setPref } from './prefs.js';
@@ -20,7 +21,7 @@ export function openPalette() {
   ];
   const draw = () => {
     const q = input.value.trim().toLowerCase(); items = [];
-    const bs = S.books.filter(b => !q || (b.t + ' ' + b.a).toLowerCase().includes(q)).slice(0, q ? 6 : 4);
+    const bs = S.books.filter(b => visible(b) && (!q || (b.t + ' ' + b.a).toLowerCase().includes(q))).slice(0, q ? 6 : 4);
     const qs = S.notes.filter(n => q && n.text.toLowerCase().includes(q)).slice(0, 3);
     const as = ACTIONS.filter(a => !q || a[0].toLowerCase().includes(q)).slice(0, q ? 5 : 7);
     let html = '';

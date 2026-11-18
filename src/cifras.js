@@ -4,6 +4,7 @@ import { $, $$, esc, ic, toast, reduce } from './ui.js';
 import { streak, bestStreak, hourHistogram, yearStats, iso } from './metrics.js';
 import { imgYear, shareImage } from './share.js';
 import { abrirAnio, resumenAnio } from './anio.js';
+import { htmlMasCifras, bindMasCifras } from './cifras2.js';
 
 export function drawStats() {
   const v = $('#v-stats'), mes = S.ui.statsMode === 'mes', now = new Date(), yr = now.getFullYear();
@@ -46,12 +47,14 @@ export function drawStats() {
      <div><h3>Meta del año</h3><div class="sub">${ys.books} de <input class="goalin" id="goal" type="number" min="1" value="${goal}" aria-label="Meta de libros"> libros.<br>${goal - ys.books > 0 ? `Faltan ${goal - ys.books}.` : '¡Meta cumplida!'}${(() => { const r = resumenAnio(yr); return goal - ys.books > 0 && ys.books ? `<br>A este ritmo: ${r.proy} al terminar el año.` : ''; })()}</div></div></div></div>
    <div class="card"><h3>Cómo lees</h3><div class="sub" style="margin-bottom:10px">Libros terminados por formato</div>
      ${FORMATS.map(f => { const n = done.filter(b => b.f === f).length; return `<div style="display:grid;grid-template-columns:56px 1fr 20px;gap:10px;align-items:center;margin:6px 0;font-size:13px"><span>${f}</span><div class="pbar"><i style="width:${done.length ? n / done.length * 100 : 0}%"></i></div><b>${n}</b></div>`; }).join('')}</div></div>
+   ${htmlMasCifras()}
    <div class="wrapped"><small>Tu ${yr} en libros</small><h3>${ys.books ? `Leíste ${ys.books} ${ys.books === 1 ? 'libro' : 'libros'} este año` : 'Tu resumen del año va tomando forma'}</h3>
      <div class="wgrid"><div><b>${fmt(ys.pages)}</b><span>páginas</span></div><div><b>${ys.books}</b><span>libros</span></div><div><b>${ys.hours ? ys.hours + ' h' : '–'}</b><span>de lectura</span></div></div><div class="row" style="gap:8px;margin-top:10px"><button class="go" id="shy">${ic('image')}Compartir como imagen</button><button class="go" id="may">Ver mi año</button></div></div>
   </div>`;
   $$('[data-m]', v).forEach(b => b.onclick = () => { S.ui.statsMode = b.dataset.m; drawStats(); });
   $('#goal', v).onchange = e => { setPref('goalYear', Math.max(1, +e.target.value || 12)); drawStats(); };
   $('#may', v).onclick = () => abrirAnio(yr);
+  bindMasCifras(v);
   $('#shy', v).onclick = async () => { toast('Preparando la imagen…'); await shareImage(await imgYear(ys, yr), `mi-${yr}.png`, `Mi ${yr} en libros`); };
   // calendario: aparece en cascada al llegar a la sección, y se desliza a los días más recientes
   const heat = $('#heat', v); heat.scrollLeft = heat.scrollWidth;

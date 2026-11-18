@@ -5,7 +5,11 @@ import { openSync, openAdd } from './sheets.js';
 import { syncLabel, syncState, isEnabled, lastSync, lastBackup } from './sync.js';
 import { porDispositivo, hace, nombreDispositivo, cambiarNombre } from './dispositivo.js';
 import { verPapelera, recuperar, borrarDePapelera, DIAS_PAPELERA } from './state.js';
-import { exportJSON, importJSON, exportCSV, readCSV, addImported } from './backup.js';
+import { exportJSON, importJSON, exportCSV, readCSV, addImported, exportCifrado } from './backup.js';
+import { abrirImportClippings } from './clippings.js';
+import { RETOS, retosActivos, cfgReto, fijarReto, fijarCfg, LOGROS } from './retos.js';
+import { palabras, repasarGlosario, quitarPalabra, pendientes as glPend } from './glosario.js';
+import { hayPin, fijarPin, quitarPin, verificarPin, pedirPin, minutosAuto, fijarAuto as fijarAutoPin, bioActiva, fijarBio, verOcultos } from './bloqueo.js';
 import { fmtDur, daysSince } from './metrics.js';
 import { fallbackColors } from './color.js';
 import { checkReminder, syncNativeReminder } from './reminder.js';
@@ -24,6 +28,9 @@ const MENU = [
   ['autores', 'Autores', () => `${new Set(S.books.map(b => b.a)).size} autores`, 'users'],
   ['diario', 'Diario de lectura', () => 'Lo que leíste, día por día', 'clock'],
   ['compartir', 'Compartir mi estante', () => 'Una imagen, no un enlace', 'image'],
+  ['retos', 'Retos y logros', () => { const g = Object.keys(S.meta.logros || {}).length; return `${retosActivos().length} retos activos · ${g} de ${LOGROS.length} logros`; }, 'star'],
+  ['glosario', 'Glosario', () => `${palabras().length} palabras guardadas`, 'info'],
+  ['privacidad', 'Privacidad y bloqueo', () => hayPin() ? 'Bloqueo con PIN activado' : 'PIN, libros ocultos y copia cifrada', 'keyboard'],
   ['papelera', 'Papelera', () => 'Libros quitados, 30 días para recuperarlos', 'trash'],
   ['portadas', 'Completar portadas', () => { try { const n = S.books.filter(b => !b.cover).length; return n ? `${n} libros sin portada` : 'Todos tienen portada'; } catch { return ''; } }, 'image'],
   ['repetidos', 'Libros repetidos', () => { const n = sobrantes().length; return n ? `${n} repetidos por quitar` : 'No hay repetidos'; }, 'tag'],
@@ -117,9 +124,11 @@ const PAGES = {
     b.innerHTML = `<div class="grid2"><div class="card"><h3>Archivo EPUB</h3><div class="sub">La app toma el título, el autor, la portada y la sinopsis, y lo puedes leer aquí.</div><button class="btn" id="i1" style="margin-top:12px">Elegir EPUB</button></div>
       <div class="card"><h3>Libro de papel (ISBN)</h3><div class="sub">Escanea el código de barras con la cámara o escribe el número. Los datos vienen de Open Library, gratis.</div><button class="btn" id="i2" style="margin-top:12px">${ic('camera')}Escanear ISBN</button></div>
       <div class="card"><h3>Lista de otra app (CSV)</h3><div class="sub">Por ejemplo, la exportación de Goodreads. Se omiten los libros que ya tienes.</div><button class="btn" id="i3" style="margin-top:12px">Elegir archivo CSV</button><input id="csvf" type="file" accept=".csv,text/csv" hidden></div>
+      <div class="card"><h3>Subrayados de Kindle</h3><div class="sub">El archivo «My Clippings.txt» de tu Kindle: se asignan a tus libros y se agregan como frases.</div><button class="btn" id="i5" style="margin-top:12px">Elegir archivo</button></div>
       <div class="card"><h3>Agregar a mano</h3><div class="sub">Para audiolibros u otros formatos sin archivo.</div><button class="btn ghost" id="i4" style="margin-top:12px">Libro nuevo</button></div></div>`;
     $('#i1', b).onclick = () => openAdd(); $('#i2', b).onclick = () => openAdd('isbn'); $('#i4', b).onclick = () => openAdd('manual');
     $('#i3', b).onclick = () => $('#csvf', b).click();
+    $('#i5', b).onclick = () => abrirImportClippings();
     $('#csvf', b).onchange = async e => {
       const f = e.target.files[0]; if (!f) return;
       try {
@@ -189,10 +198,21 @@ const PAGES = {
         <div class="mut"><i class="pt"></i>Copia automática: ${lastBackup() ? new Date(lastBackup()).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' }) : 'se hace con la próxima sincronización'}</div></div>
         <label style="display:grid;gap:4px;margin-top:12px;font-size:13px">Nombre de este dispositivo<input id="dvn" value="${esc(nombreDispositivo())}" maxlength="20"></label></div>` : ''}
       <div class="card"><h3>Copia de seguridad</h3><div class="sub">Libros, fechas, páginas, frases, pisos y colecciones. Los EPUB se quedan en tu Drive.</div>
-      <div class="row" style="margin-top:12px"><button class="btn ghost" id="ej">${ic('download')}Exportar copia (.json)</button><button class="btn ghost" id="ij">${ic('upload')}Importar copia</button><button class="btn ghost" id="ec">${ic('download')}Exportar lista (.csv)</button><input id="jf" type="file" accept=".json,application/json" hidden></div></div>`;
+      <div class="row" style="margin-top:12px"><button class="btn ghost" id="ej">${ic('download')}Exportar copia (.json)</button><button class="btn ghost" id="ij">${ic('upload')}Importar copia</button><button class="btn ghost" id="ec">${ic('download')}Exportar lista (.csv)</button><button class="btn ghost" id="ecf">${ic('download')}Copia con contraseña</button><input id="jf" type="file" accept=".json,application/json" hidden></div></div>`;
     $('#dvn', b)?.addEventListener('change', e => { cambiarNombre(e.target.value); toast('Nombre guardado'); });
     $('#sy', b).onclick = openSync; $('#ej', b).onclick = exportJSON; $('#ec', b).onclick = exportCSV; $('#ij', b).onclick = () => $('#jf', b).click();
-    $('#jf', b).onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const r = await importJSON(f); toast(`Copia importada: ${r.books} libros y ${r.notes} frases nuevas`); } catch (err) { toast(err.message || 'No se pudo importar'); } };
+    $('#ecf', b).onclick = () => {
+      const o = openSheet(`<h3>Copia con contraseña</h3><div class="sub">Se guarda un archivo que solo se abre con esta contraseña. Si la olvidas, no hay forma de recuperarlo.</div><form class="form" id="cf" style="margin-top:12px"><label>Contraseña<input name="p" type="password" required minlength="6" autocomplete="new-password"></label><label>Repítela<input name="q" type="password" required minlength="6" autocomplete="new-password"></label><button class="btn" type="submit">Guardar copia</button></form>`);
+      $('#cf', o).onsubmit = async e => { e.preventDefault(); const d = new FormData(e.target); if (d.get('p') !== d.get('q')) return toast('Las contraseñas no coinciden'); await exportCifrado(d.get('p')); closeSheet(); toast('Copia con contraseña lista'); };
+    };
+    const importa = async (f, pass) => {
+      try { const r = await importJSON(f, pass); toast(`Copia importada: ${r.books} libros y ${r.notes} frases nuevas`); }
+      catch (err) {
+        if (err.message === 'NECESITA_CLAVE') { const o = openSheet(`<h3>Copia con contraseña</h3><form class="form" id="cp2"><label>Contraseña<input name="p" type="password" required autocomplete="current-password"></label><button class="btn" type="submit">Abrir copia</button></form>`); $('#cp2', o).onsubmit = ev => { ev.preventDefault(); const p = new FormData(ev.target).get('p'); closeSheet(); importa(f, p); }; }
+        else toast(err.message || 'No se pudo importar');
+      }
+    };
+    $('#jf', b).onchange = async e => { const f = e.target.files[0]; if (!f) return; importa(f); };
   },
   /* ---- Atajos y accesibilidad ---- */
   atajos(b) {
@@ -208,6 +228,50 @@ const PAGES = {
     b.innerHTML = `<div class="card"><h3>Para tu próxima lectura</h3><div class="sub">La app arma la pregunta con lo que marcaste como leído, en lectura y abandonado. Cópiala y pégala en la IA que prefieras.</div><textarea class="ask" id="ask" readonly aria-label="Pregunta para la IA">${esc(txt)}</textarea>
       <div class="row" style="margin-top:10px"><button class="btn" id="cp">${ic('copy')}Copiar pregunta</button><a class="btn ghost" href="https://www.perplexity.ai/" target="_blank" rel="noopener">Abrir Perplexity</a></div></div>`;
     $('#cp', b).onclick = async () => { try { await navigator.clipboard.writeText(txt); toast('Pregunta copiada'); } catch { $('#ask', b).select(); toast('Selecciónala y cópiala'); } };
+  },
+  retos(b) {
+    const draw = () => {
+      const ac = retosActivos(), got = S.meta.logros || {};
+      b.innerHTML = `<div class="card"><h3>Retos</h3><div class="sub">Metas con forma. Activa las que quieras y mira tu avance; las activas también aparecen en Hoy.</div>
+        ${RETOS.map(r => { const c = r.cfg ? (cfgReto(r.id) ?? r.def) : null, x = r.calc(c), on = ac.includes(r.id); return `<div class="reto"><div class="rh"><div style="min-width:0"><b>${r.n}</b><div class="sub">${esc(r.d(c))}</div></div><button class="sw3" data-r="${r.id}" aria-pressed="${on}" aria-label="Activar ${esc(r.n)}"></button></div>${on ? `<div class="pbar" style="margin-top:8px"><i style="width:${Math.min(100, Math.round(x.a / Math.max(1, x.t) * 100))}%"></i></div><div class="sub" style="margin-top:4px">${x.txt}</div>` : ''}${on && r.cfg ? `<label class="small" style="display:block;margin-top:8px">Meta <input class="goalin" type="number" min="1" data-c="${r.id}" value="${c}"></label>` : ''}</div>`; }).join('')}</div>
+        <div class="card"><h3>Logros</h3><div class="sub">Reconocimientos suaves, sin competir con nadie.</div><div class="badges2">${LOGROS.map(l => { const t = got[l.id]; return `<div class="bdg2 ${t ? '' : 'off'}"><i>${l.s}</i><b>${l.n}</b><small>${t ? new Date(t).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : esc(l.d)}</small></div>`; }).join('')}</div></div>`;
+      $$('[data-r]', b).forEach(x => x.onclick = async () => { await fijarReto(x.dataset.r, x.getAttribute('aria-pressed') !== 'true'); draw(); });
+      $$('[data-c]', b).forEach(x => x.onchange = async () => { await fijarCfg(x.dataset.c, Math.max(1, +x.value || 1)); draw(); });
+    };
+    draw();
+  },
+  glosario(b) {
+    const draw = () => {
+      const l = palabras().slice().sort((a, z) => z.at - a.at), pend = glPend().length;
+      b.innerHTML = `<div class="card"><h3>Glosario</h3><div class="sub">Las palabras que guardas al leer: toca una palabra en el lector, elige «Definir» y guárdala.</div>
+        <div class="row" style="margin-top:12px"><button class="btn" id="gr" ${pend ? '' : 'disabled'}>Repasar${pend ? ` (${pend})` : ''}</button></div>
+        ${l.length ? `<div style="margin-top:14px;display:grid;gap:10px">${l.map(w => `<div class="trit"><div style="min-width:0;flex:1"><b>${esc(w.w)}</b><div class="small">${esc((w.def || '').split('\n')[0].slice(0, 110))}</div></div><button class="btn ghost" data-d="${w.id}" aria-label="Quitar">${ic('trash')}</button></div>`).join('')}</div>` : '<p style="margin-top:12px" class="sub">Aún no hay palabras guardadas.</p>'}</div>`;
+      $('#gr', b)?.addEventListener('click', repasarGlosario);
+      $$('[data-d]', b).forEach(x => x.onclick = async () => { await quitarPalabra(x.dataset.d); draw(); });
+    };
+    draw();
+  },
+  privacidad(b) {
+    const draw = () => {
+      const ocultos = S.books.filter(x => x.oculto).length, bio = !!window.AndroidApp?.biometriaDisponible?.();
+      b.innerHTML = `<div class="card"><h3>Bloqueo con PIN</h3><div class="sub">${hayPin() ? 'La app pide el PIN al abrirla y al volver tras unos minutos.' : 'Protege la app con un PIN de 4 a 6 dígitos. Se guarda solo en este dispositivo.'}</div>
+        <div class="row" style="margin-top:12px">${hayPin() ? '<button class="btn" id="pc">Cambiar PIN</button><button class="btn ghost" id="pq">Quitar PIN</button>' : '<button class="btn" id="pn">Crear PIN</button>'}</div>
+        ${hayPin() ? `<label style="display:grid;gap:4px;margin-top:14px;font-size:13px">Pedir el PIN al volver después de<select id="pa">${[[0, 'Siempre'], [1, '1 minuto'], [5, '5 minutos'], [15, '15 minutos']].map(([m, n]) => `<option value="${m}" ${minutosAuto() === m ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        ${bio ? `<label class="chk2" style="margin-top:12px"><input type="checkbox" id="pb" ${bioActiva() ? 'checked' : ''}> Desbloquear con la huella</label>` : ''}` : ''}</div>
+        <div class="card"><h3>Libros ocultos</h3><div class="sub">${ocultos} ${ocultos === 1 ? 'libro oculto' : 'libros ocultos'}. Se ocultan desde la ficha de cada libro («Editar») y no aparecen en la estantería, en Hoy ni en las sugerencias.</div>
+        <div class="row" style="margin-top:12px"><button class="btn ${S.ui.verOcultos ? '' : 'ghost'}" id="po">${S.ui.verOcultos ? 'Volver a ocultarlos' : 'Mostrarlos ahora'}</button></div></div>`;
+      const crea = (cambia) => {
+        const o = openSheet(`<h3>${cambia ? 'Nuevo PIN' : 'Crear PIN'}</h3><form class="form" id="pf" style="margin-top:12px"><label>PIN (4 a 6 dígitos)<input name="p" type="password" inputmode="numeric" pattern="[0-9]{4,6}" required autocomplete="off"></label><label>Repítelo<input name="q" type="password" inputmode="numeric" pattern="[0-9]{4,6}" required autocomplete="off"></label><button class="btn" type="submit">Guardar PIN</button></form>`);
+        $('#pf', o).onsubmit = async e => { e.preventDefault(); const d = new FormData(e.target); if (d.get('p') !== d.get('q')) return toast('Los PIN no coinciden'); await fijarPin(d.get('p')); closeSheet(); toast('PIN guardado'); draw(); };
+      };
+      $('#pn', b)?.addEventListener('click', () => crea(false));
+      $('#pc', b)?.addEventListener('click', async () => { if (await pedirPin(true)) crea(true); });
+      $('#pq', b)?.addEventListener('click', async () => { if (await pedirPin(true)) { quitarPin(); toast('PIN quitado'); draw(); } });
+      $('#pa', b)?.addEventListener('change', e => fijarAutoPin(+e.target.value));
+      $('#pb', b)?.addEventListener('change', e => fijarBio(e.target.checked));
+      $('#po', b)?.addEventListener('click', async () => { const ok = await verOcultos(!S.ui.verOcultos); if (ok) { draw(); toast(S.ui.verOcultos ? 'Libros ocultos visibles' : 'Libros ocultos de nuevo'); import('./state.js').then(m => m.emit()); } });
+    };
+    draw();
   },
   papelera(b) {
     const draw = async () => {

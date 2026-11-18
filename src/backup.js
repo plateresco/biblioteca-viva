@@ -11,20 +11,34 @@ function download(name, text, type) {
   a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
 }
 
-export function exportJSON() {
-  const out = {
+export function construirCopia() {
+  return {
     app: 'biblioteca-viva', v: 1, savedAt: new Date().toISOString(),
     books: S.books.map(({ cover, locs, id, ...r }) => r),
     notes: S.notes.map(({ id, ...r }) => r),
     log: S.log.map(l => ({ bookUid: byId(l.bookId)?.uid, date: l.date, pages: l.pages, secs: l.secs, hours: l.hours })).filter(l => l.bookUid),
     meta: S.meta, tomb: S.tomb,
   };
-  download(`biblioteca-viva-${today()}.json`, JSON.stringify(out), 'application/json');
+}
+export function exportJSON() { download(`biblioteca-viva-${today()}.json`, JSON.stringify(construirCopia()), 'application/json'); }
+
+// Copia protegida con contraseña (AES-GCM; la clave sale de la contraseña con PBKDF2). Sin la contraseña no se puede abrir.
+const b64 = u => btoa(String.fromCharCode(...new Uint8Array(u))), unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function claveDe(pass, sal) { const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']); return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: sal, iterations: 150000, hash: 'SHA-256' }, k, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']); }
+export async function exportCifrado(pass) {
+  const sal = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await claveDe(pass, sal), new TextEncoder().encode(JSON.stringify(construirCopia())));
+  download(`biblioteca-viva-${today()}.cifrada.json`, JSON.stringify({ app: 'biblioteca-viva-cifrada', v: 1, sal: b64(sal), iv: b64(iv), datos: b64(ct) }), 'application/json');
 }
 
 // Une una copia con lo que ya hay: agrega lo que falta y deja intacto lo demás.
-export async function importJSON(file) {
-  const d = JSON.parse(await file.text());
+export async function importJSON(file, pass) {
+  let d = JSON.parse(await file.text());
+  if (d.app === 'biblioteca-viva-cifrada') {
+    if (!pass) throw new Error('NECESITA_CLAVE');
+    try { d = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(d.iv) }, await claveDe(pass, unb64(d.sal)), unb64(d.datos)))); }
+    catch { throw new Error('Contraseña incorrecta o archivo dañado.'); }
+  }
   if (d.app !== 'biblioteca-viva') throw new Error('Este archivo no es una copia de Mi Biblioteca Viva.');
   const have = new Set(S.books.map(b => b.uid)); let nb = 0, nn = 0;
   for (const b of d.books || []) { if (have.has(b.uid)) continue; const col = b.c1 ? {} : fallbackColors(b.t); await addBook({ ...b, ...col, cover: null, hasFile: false }); nb++; }

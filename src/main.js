@@ -23,6 +23,7 @@ import { checkReminder } from './reminder.js';
 import { resetSpineCache } from './spine.js';
 import { shrinkImage } from './color.js';
 import { importarEpubs } from './sheets.js';
+import { iniciarBloqueo } from './bloqueo.js';
 import { currentBook } from './hoy.js';
 import { avisarSiHay } from './actualizar.js';
 import { closeSheet } from './ui.js';
@@ -159,3 +160,7 @@ window.__atajo = a => {
   else if (a === 'escanear') { go('lib'); import('./sheets.js').then(m => m.openAdd('isbn')); }
   else if (a === 'pagina') { go('fr'); setTimeout(() => import('./frases.js').then(m => m.escanearPagina && m.escanearPagina()), 300); }
 };
+
+// Bloqueo con PIN (si lo activaste) y revisión de logros nuevos
+iniciarBloqueo();
+{ let lg = 0; const rv = () => import('./retos.js').then(m => m.revisarLogros()); onChange(() => { clearTimeout(lg); lg = setTimeout(rv, 4000); }); setTimeout(rv, 3500); }
