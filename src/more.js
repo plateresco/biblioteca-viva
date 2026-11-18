@@ -7,6 +7,7 @@ import { porDispositivo, hace, nombreDispositivo, cambiarNombre } from './dispos
 import { verPapelera, recuperar, borrarDePapelera, DIAS_PAPELERA } from './state.js';
 import { exportJSON, importJSON, exportCSV, readCSV, addImported, exportCifrado } from './backup.js';
 import { abrirImportClippings } from './clippings.js';
+import { abrirCatalogo, disponible as hayCatalogo } from './catalogo.js';
 import { RETOS, retosActivos, cfgReto, fijarReto, fijarCfg, LOGROS } from './retos.js';
 import { palabras, repasarGlosario, quitarPalabra, pendientes as glPend } from './glosario.js';
 import { hayPin, fijarPin, quitarPin, verificarPin, pedirPin, minutosAuto, fijarAuto as fijarAutoPin, bioActiva, fijarBio, verOcultos } from './bloqueo.js';
@@ -28,6 +29,7 @@ const MENU = [
   ['autores', 'Autores', () => `${new Set(S.books.map(b => b.a)).size} autores`, 'users'],
   ['diario', 'Diario de lectura', () => 'Lo que leíste, día por día', 'clock'],
   ['compartir', 'Compartir mi estante', () => 'Una imagen, no un enlace', 'image'],
+  ...(hayCatalogo() ? [['catalogo', 'Clásicos gratis', () => 'Libros de dominio público en un toque', 'book']] : []),
   ['retos', 'Retos y logros', () => { const g = Object.keys(S.meta.logros || {}).length; return `${retosActivos().length} retos activos · ${g} de ${LOGROS.length} logros`; }, 'star'],
   ['glosario', 'Glosario', () => `${palabras().length} palabras guardadas`, 'info'],
   ['privacidad', 'Privacidad y bloqueo', () => hayPin() ? 'Bloqueo con PIN activado' : 'PIN, libros ocultos y copia cifrada', 'keyboard'],
@@ -216,7 +218,7 @@ const PAGES = {
   },
   /* ---- Atajos y accesibilidad ---- */
   atajos(b) {
-    const K = [['/', 'o Ctrl K', 'Buscar libros, frases y acciones'], ['G', 'luego H, B, F, C o M', 'Ir a Hoy, Biblioteca, Frases, Cifras o Más'], ['N', '', 'Agregar un libro'], ['T', '', 'Cambiar de tema de sala'], ['Enter', '', 'Abrir el libro seleccionado'], ['E', '', 'Editar la ficha del libro seleccionado'], ['← →', '', 'Pasar de página en el lector'], ['H', '', 'Subrayar lo seleccionado en el lector'], ['Esc', '', 'Cerrar o guardar el libro']];
+    const K = [['/', 'o Ctrl K', 'Buscar libros, frases y acciones'], ['G', 'luego H, B, F, C o M', 'Ir a Hoy, Biblioteca, Frases, Cifras o Más'], ['N', '', 'Agregar un libro'], ['T', '', 'Cambiar de tema de sala'], ['Enter', '', 'Abrir el libro seleccionado'], ['E', '', 'Editar la ficha del libro seleccionado'], ['← →', '', 'Pasar de página en el lector'], ['H', '', 'Subrayar lo seleccionado en el lector'], ['B', '', 'Marcar la página en el lector'], ['D', '', 'Definir la palabra seleccionada'], ['+  −', '', 'Cambiar el tamaño de letra en el lector'], ['Esc', '', 'Cerrar o guardar el libro']];
     b.innerHTML = `<div class="keys">${K.map(([k, a, t]) => `<div><kbd>${k}</kbd><span>${a ? `<small>${a}</small><br>` : ''}${t}</span></div>`).join('')}</div>
      <div class="grid3b"><div class="card"><h3>Texto ajustable</h3><div class="sub">En «Apariencia y texto» puedes agrandar toda la letra de la app.</div></div><div class="card"><h3>Contraste y foco</h3><div class="sub">El tema «Alto contraste» y un borde de foco visible al navegar con teclado.</div></div><div class="card"><h3>Menos movimiento</h3><div class="sub">Si tu dispositivo pide reducir el movimiento, las animaciones se vuelven instantáneas.</div></div></div>`;
   },
@@ -229,6 +231,7 @@ const PAGES = {
       <div class="row" style="margin-top:10px"><button class="btn" id="cp">${ic('copy')}Copiar pregunta</button><a class="btn ghost" href="https://www.perplexity.ai/" target="_blank" rel="noopener">Abrir Perplexity</a></div></div>`;
     $('#cp', b).onclick = async () => { try { await navigator.clipboard.writeText(txt); toast('Pregunta copiada'); } catch { $('#ask', b).select(); toast('Selecciónala y cópiala'); } };
   },
+  catalogo(b) { b.innerHTML = '<div class="card"><h3>Clásicos gratis</h3><div class="sub">Libros de dominio público de Project Gutenberg, en español y otros idiomas.</div><div class="row" style="margin-top:12px"><button class="btn" id="ab">Abrir el catálogo</button></div></div>'; $('#ab', b).onclick = abrirCatalogo; },
   retos(b) {
     const draw = () => {
       const ac = retosActivos(), got = S.meta.logros || {};

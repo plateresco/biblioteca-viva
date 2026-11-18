@@ -1,4 +1,5 @@
-import { importarArchivo } from './importar.js';
+import { importarDocumento, tipoDe, importarAudio } from './documentos.js';
+import { abrirCatalogo, disponible as hayCatalogo } from './catalogo.js';
 import { S, ST, FORMATS, MODELOS, byId, coverUrl, addBook, saveBook, removeBook, recuperar, setStatus, addPages, today, fd, emit } from './state.js';
 import { $, $$, esc, ic, openSheet, closeSheet, toast, toastAccion } from './ui.js';
 import { coverColors, fallbackColors } from './color.js';
@@ -67,8 +68,9 @@ export function openCover(id, { onClose, openReader } = {}) {
 /* ---------- Agregar libros: EPUB, ISBN o a mano ---------- */
 export function openAdd(mode) {
   const o = openSheet(`<h3>Agregar libros</h3><div class="sub">Con un EPUB la app toma sola el título, el autor, la portada y la sinopsis, y lo puedes leer aquí mismo.</div>
-    <div class="imp" id="drop">${ic('file')}<div style="margin:6px 0 12px">Arrastra tus archivos .epub aquí<br>o elígelos desde tu dispositivo</div>
-      <button class="btn" id="pickf">Elegir EPUB</button><input id="fi" type="file" accept=".epub,application/epub+zip" multiple hidden></div>
+    <div class="imp" id="drop">${ic('file')}<div style="margin:6px 0 12px">Arrastra tus archivos aquí<br>EPUB, PDF, cómics (CBZ) o audiolibros</div>
+      <button class="btn" id="pickf">Elegir archivos</button><input id="fi" type="file" accept=".epub,.pdf,.cbz,.zip,.m4b,.mp3,.m4a,.ogg,.opus,application/epub+zip,application/pdf,audio/*" multiple hidden></div>
+    ${hayCatalogo() ? `<button class="btn ghost" id="catb" style="width:100%;margin-bottom:10px">Clásicos gratis (catálogo)</button>` : ''}
     <div id="log"></div>
     <div class="rvbox" id="isbnc"><h4>Libro de papel · ISBN</h4><div class="sub">El ISBN está en la contraportada, junto al código de barras. Los datos vienen de Open Library, gratis.</div>
       <div class="isbnrow"><input id="isbn" inputmode="numeric" placeholder="Escribe o pega el ISBN" aria-label="ISBN" autocomplete="off"><button class="btn" id="isbnGo">Buscar</button></div>
@@ -79,14 +81,16 @@ export function openAdd(mode) {
   const fi = $('#fi', o), drop = $('#drop', o), log = $('#log', o);
   $('#pickf', o).onclick = () => fi.click();
   $('#manual', o).onclick = () => { closeSheet(); openEdit(null); };
+  $('#catb', o)?.addEventListener('click', () => { closeSheet(); abrirCatalogo(); });
   fi.onchange = () => run([...fi.files]);
   ['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => run([...e.dataTransfer.files].filter(f => /\.epub$/i.test(f.name))));
+  drop.addEventListener('drop', e => run([...e.dataTransfer.files]));
   let corriendo = false;
   async function run(files) {
-    files = files.filter(f => /\.epub$/i.test(f.name) || f.type === 'application/epub+zip');
-    if (!files.length) return toast('Elige archivos .epub');
+    files = files.filter(f => tipoDe(f) && tipoDe(f) !== 'txt');
+    if (!files.length) return toast('Elige archivos EPUB, PDF, CBZ o de audio');
+    const audios = files.filter(f => tipoDe(f) === 'audio'); if (audios.length > 1) files = files.filter(f => tipoDe(f) !== 'audio').concat([{ __audios: audios, name: audios[0].name }]);
     if (corriendo) return toast('Espera: todavía se están agregando libros');
     corriendo = true;
     const res = { nuevo: 0, repetido: 0, fallo: [] }, resumen = document.createElement('div'); resumen.className = 'found'; log.prepend(resumen);
@@ -97,7 +101,7 @@ export function openAdd(mode) {
       row.innerHTML = `<span class="spin"></span><div style="min-width:0"><b>${esc(f.name)}</b><div class="small" data-s>Leyendo el libro…</div></div>`;
       resumen.after(row);
       try {
-        const r = await importarArchivo(f, p => { row.querySelector('[data-s]').textContent = `Contando páginas… ${Math.round(p * 100)} %`; });
+        const r = f.__audios ? await importarAudio(f.__audios) : await importarDocumento(f, p => { row.querySelector('[data-s]').textContent = `Contando páginas… ${Math.round(p * 100)} %`; });
         if (r.estado === 'nuevo') { res.nuevo++; row.innerHTML = `${miniFace(r.libro)}<div style="min-width:0"><b>${esc(r.libro.t)}</b><div class="small">${esc(r.libro.a)} · ${r.libro.p} págs. estimadas</div></div>`; }
         else { res.repetido++; row.innerHTML = `${miniFace(r.libro)}<div style="min-width:0"><b>${esc(r.libro.t)}</b><div class="small">Ya lo tenías: no se agregó otra vez</div></div>`; }
       } catch (err) {

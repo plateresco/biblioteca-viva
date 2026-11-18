@@ -2,6 +2,7 @@ import ePub from 'epubjs';
 import { S, byId, getFile, setStatus, persistBook, addPages, addTime, saveNote, removeNote, emit } from './state.js';
 import { $, $$, esc, ic, toast } from './ui.js';
 import { ensureEpub } from './sync.js';
+import { dockear } from './dock.js';
 import { nombreDispositivo, hace } from './dispositivo.js';
 import { SONIDOS, sonar, volumen, parar as pararAmb } from './ambient.js';
 
@@ -48,7 +49,7 @@ export async function openReader(id, cfiTarget) {
       <button class="iconbtn" id="rNext" aria-label="Página siguiente">${ic('right')}</button>
       <button class="iconbtn" id="rListen" aria-label="Escuchar en voz alta">${ic('phones')}</button></div>
       <div class="small" id="rPage"></div></div>`;
-  document.body.appendChild(root);
+  document.body.appendChild(root); dockear(true);
 
   const book = ePub(await file.arrayBuffer());
   await book.ready;
@@ -160,7 +161,7 @@ export async function openReader(id, cfiTarget) {
   };
   $('#rPrev', root).onclick = () => go(-1);
   $('#rNext', root).onclick = () => go(1);
-  const onKey = e => { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return; if (e.key === 'h' || e.key === 'H') { if (selCfi && bar) saveHL(lastColor); } if (e.key === '/') { e.preventDefault?.(); $('#rSearch', root).click(); } if (e.key === 'ArrowRight' || e.key === 'PageDown') go(1); if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1); if (e.key === 'Escape') { if (!$('#panel', root).hidden) hidePanel(); else close(); } };
+  const onKey = e => { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return; if (e.key === 'b' || e.key === 'B') { $('#rMark', root).click(); } if ((e.key === 'd' || e.key === 'D') && selCfi && bar) { bar.querySelector('[data-def]')?.click(); } if (e.key === '+' || e.key === '=') $('#fp', root)?.click(); if (e.key === '-') $('#fm', root)?.click(); if (e.key === 'h' || e.key === 'H') { if (selCfi && bar) saveHL(lastColor); } if (e.key === '/') { e.preventDefault?.(); $('#rSearch', root).click(); } if (e.key === 'ArrowRight' || e.key === 'PageDown') go(1); if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1); if (e.key === 'Escape') { if (!$('#panel', root).hidden) hidePanel(); else close(); } };
   rendition.on('keyup', onKey); document.addEventListener('keyup', onKey);
   let tx = 0, ty = 0;
   rendition.on('touchstart', e => { tx = e.changedTouches[0].screenX; ty = e.changedTouches[0].screenY; });
@@ -456,7 +457,7 @@ export async function openReader(id, cfiTarget) {
     stopTTS(); hideSave(); clearTimeout(saveT); persistBook(b); delete window.__lecturaAccion; pararAmb(); if (prefs.dnd && AN?.noMolestar) { try { AN.noMolestar(false); } catch { } }
     document.removeEventListener('keyup', onKey);
     try { book.destroy(); } catch { }
-    root.remove(); cur = null; emit();
+    root.remove(); dockear(false); cur = null; emit();
   }
   $('#rBack', root).onclick = close;
   cur = { close };

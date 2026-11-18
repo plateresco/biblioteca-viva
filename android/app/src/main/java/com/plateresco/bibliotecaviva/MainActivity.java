@@ -229,6 +229,11 @@ public class MainActivity extends Activity {
     // Atajos del icono y botones de los widgets: la web ya sabe que hacer con cada uno.
     void atajo(String a) { js("setTimeout(function(){window.__atajo&&window.__atajo(" + q(a) + ")},900)"); }
 
+    static boolean hostPermitido(String u) {
+        try { String h = new URL(u).getHost().toLowerCase(); return "https".equals(new URL(u).getProtocol()) && (h.equals("gutenberg.org") || h.endsWith(".gutenberg.org") || h.equals("archive.org") || h.endsWith(".archive.org")); }
+        catch (Exception e) { return false; }
+    }
+
     String nombreDe(Uri u) {
         String n = "libro.epub";
         try (Cursor c = getContentResolver().query(u, null, null, null, null)) {
@@ -346,6 +351,58 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public boolean noMolestarPermitido() {
             try { return ((android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE)).isNotificationPolicyAccessGranted(); } catch (Throwable e) { return false; }
+        }
+
+        /* Catalogo de clasicos gratis: la app consulta y baja desde sitios de libros de dominio publico (el navegador no puede por CORS) */
+        @JavascriptInterface public void httpGet(final String id, final String url) {
+            new Thread(() -> {
+                try {
+                    if (!hostPermitido(url)) throw new Exception("Sitio no permitido");
+                    HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                    c.setInstanceFollowRedirects(true); c.setConnectTimeout(15000); c.setReadTimeout(25000);
+                    c.setRequestProperty("User-Agent", "MiBiblioteca/1.0 (app de lectura personal)");
+                    int st = c.getResponseCode();
+                    StringBuilder sb = new StringBuilder();
+                    try (InputStream in = st >= 400 ? c.getErrorStream() : c.getInputStream()) {
+                        if (in != null) { byte[] buf = new byte[16384]; int n; while ((n = in.read(buf)) > 0 && sb.length() < 3000000) sb.append(new String(buf, 0, n, "UTF-8")); }
+                    }
+                    js("window.__httpRes&&window.__httpRes(" + q(id) + "," + st + "," + q(sb.toString()) + ")");
+                } catch (Exception e) { js("window.__httpRes&&window.__httpRes(" + q(id) + ",0,'')"); }
+            }).start();
+        }
+        @JavascriptInterface public void descargarEpub(final String url, final String nombre) {
+            new Thread(() -> {
+                try {
+                    if (!hostPermitido(url)) throw new Exception("Sitio no permitido");
+                    File dir = new File(getCacheDir(), "entrada"); dir.mkdirs();
+                    String limpio = nombre.replaceAll("[^A-Za-z0-9._-]", "_");
+                    File dest = new File(dir, System.currentTimeMillis() + "-" + limpio);
+                    HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                    c.setInstanceFollowRedirects(true); c.setConnectTimeout(20000); c.setReadTimeout(60000);
+                    c.setRequestProperty("User-Agent", "MiBiblioteca/1.0 (app de lectura personal)");
+                    if (c.getResponseCode() >= 400) throw new Exception("Respuesta " + c.getResponseCode());
+                    try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(dest)) { byte[] buf = new byte[65536]; int n; while ((n = in.read(buf)) > 0) out.write(buf, 0, n); }
+                    if (dest.length() < 2000) throw new Exception("Archivo vacio");
+                    js("window.__descargaOk&&window.__descargaOk()");
+                    entregarArchivo("https://" + DOMINIO + "/cache/entrada/" + Uri.encode(dest.getName()), limpio);
+                } catch (Exception e) { js("window.__descargaError&&window.__descargaError(" + q("No se pudo bajar el libro. Revisa tu conexión.") + ")"); }
+            }).start();
+        }
+
+        /* Huella para el bloqueo de la app (Android 9 o mas) */
+        @JavascriptInterface public boolean biometriaDisponible() { return Build.VERSION.SDK_INT >= 28 && getPackageManager().hasSystemFeature(PackageManager.FEATURE_FINGERPRINT); }
+        @JavascriptInterface public void biometria() {
+            runOnUiThread(() -> {
+                try {
+                    if (Build.VERSION.SDK_INT < 28) { js("window.__bioError&&window.__bioError()"); return; }
+                    android.hardware.biometrics.BiometricPrompt bp = new android.hardware.biometrics.BiometricPrompt.Builder(MainActivity.this)
+                            .setTitle("Mi Biblioteca").setNegativeButton("Usar PIN", getMainExecutor(), (d, w) -> js("window.__bioError&&window.__bioError()")).build();
+                    bp.authenticate(new android.os.CancellationSignal(), getMainExecutor(), new android.hardware.biometrics.BiometricPrompt.AuthenticationCallback() {
+                        @Override public void onAuthenticationSucceeded(android.hardware.biometrics.BiometricPrompt.AuthenticationResult r) { js("window.__bioOk&&window.__bioOk()"); }
+                        @Override public void onAuthenticationError(int c, CharSequence m) { js("window.__bioError&&window.__bioError()"); }
+                    });
+                } catch (Throwable e) { js("window.__bioError&&window.__bioError()"); }
+            });
         }
 
         /* Widgets de la pantalla de inicio */

@@ -23,7 +23,7 @@ export function drawFrases(ctx) {
   function card(n) {
     const b = byId(n.bookId), cu = b && coverUrl(b), c = b?.c1 || '#555';
     return `<div class="q ${tpl}" data-id="${n.id}" style="--bc:${c};${cu && tpl === 'libro' ? `--art:url('${cu}')` : ''}"><span class="hdot" style="background:${HL[n.color] || HL.amarillo}"></span><q>“${esc(n.text)}”</q>${n.comment ? `<div class="qnote">${esc(n.comment)}</div>` : ''}<div class="src"><span>${esc(n.title || '')}</span>
-      <span class="qa"><button data-nt="${n.id}" aria-label="${n.comment ? 'Editar nota' : 'Agregar nota'}">${ic('edit')}Nota</button><button data-sh="${n.id}" aria-label="Compartir como imagen">${ic('image')}Compartir</button>${b?.hasFile && n.cfi ? `<button data-go="${n.id}" aria-label="Ir al pasaje">${ic('arrow')}</button>` : ''}<button data-del="${n.id}" aria-label="Borrar">${ic('trash')}</button></span></div></div>`;
+      <span class="qa"><button data-nt="${n.id}" aria-label="${n.comment ? 'Editar nota' : 'Agregar nota'}">${ic('edit')}Nota</button><button data-sh="${n.id}" aria-label="Compartir como imagen">${ic('image')}Compartir</button>${b?.hasFile && (n.cfi || n.pdfPag) ? `<button data-go="${n.id}" aria-label="Ir al pasaje">${ic('arrow')}</button>` : ''}<button data-del="${n.id}" aria-label="Borrar">${ic('trash')}</button></span></div></div>`;
   }
   $('#nq', v).onclick = () => newQuote(ctx);
   $('#exq', v)?.addEventListener('click', () => abrirExportar(qbook ? +qbook : null));
@@ -37,7 +37,7 @@ export function drawFrases(ctx) {
     if (nt) return editarNota(S.notes.find(x => x.id === +nt.dataset.nt), () => drawFrases(ctx));
     const sh = e.target.closest('[data-sh]'), go = e.target.closest('[data-go]'), del = e.target.closest('[data-del]');
     if (sh) { const n = S.notes.find(x => x.id === +sh.dataset.sh); toast('Preparando la imagen…'); await shareImage(await imgQuote(n, tpl, byId(n.bookId)), 'frase.png', n.text); }
-    else if (go) { const n = S.notes.find(x => x.id === +go.dataset.go); ctx.openReader(n.bookId, n.cfi); }
+    else if (go) { const n = S.notes.find(x => x.id === +go.dataset.go); ctx.openReader(n.bookId, n.pdfPag || n.cfi); }
     else if (del) { await removeNote(+del.dataset.del); }
   });
 }

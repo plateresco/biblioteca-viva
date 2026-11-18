@@ -189,7 +189,7 @@ export async function syncNow(onStatus = () => { }) {
       if (!b.cover && byName.has(cn)) { b.cover = await download(byName.get(cn).id); await db.put('books', b); }
       if (b.hasFile && !byName.has(en)) {
         const f = await db.get('files', b.id);
-        if (f) { onStatus(`Subiendo “${b.t}”…`); await upload(en, f); }
+        if (f instanceof Blob) { onStatus(`Subiendo “${b.t}”…`); await upload(en, f); }          // los audiolibros (varios archivos) se quedan en el dispositivo
       }
     }
     // Libros borrados: limpia sus archivos en la nube

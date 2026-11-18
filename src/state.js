@@ -6,7 +6,7 @@ export const ST = {
   porleer: { n: 'Por leer', c: 'var(--idle)' },
   abandonado: { n: 'Abandonado', c: 'var(--bad)' },
 };
-export const FORMATS = ['EPUB', 'Papel', 'Audio', 'Otro'];
+export const FORMATS = ['EPUB', 'Papel', 'Audio', 'PDF', 'Cómic', 'Otro'];
 export const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 export const S = { books: [], log: [], notes: [], tomb: [], meta: { pisos: [], cols: [], wish: [], mode: 'auto', upd: 0 }, ui: { tab: 'hoy', filter: 'todos', col: null, reorder: false, pick: null, sel: null, statsMode: 'mes', qi: Math.floor(Date.now() / 864e5) } };
@@ -138,6 +138,8 @@ export function modeloDe(b) {
   if (b.modelo) return b.modelo;
   if (b.f === 'Audio') return 'aud';
   if (b.f === 'EPUB') return 'epub';
+  if (b.f === 'PDF') return 'rus';
+  if (b.f === 'Cómic') return 'bol';
   if ((b.p || 200) <= 190) return 'bol';
   const h = ((b.id || 1) * 2654435761 >>> 0) % 10;
   return h < 5 ? 'dura' : h < 8 ? 'tela' : 'rus';

@@ -36,7 +36,14 @@ const TABS = [['hoy', 'Hoy', 'home'], ['lib', 'Biblioteca', 'shelf'], ['fr', 'Fr
 // Las pantallas menos usadas y el lector (que trae la librería de EPUB) se descargan recién cuando se necesitan.
 // Cada pantalla pesada se carga cuando se abre. Las rutas deben ser literales: así Vite las empaqueta como archivos propios.
 const DRAW = { hoy: drawHoy, lib: drawLib, fr: c => import('./frases.js').then(x => x.drawFrases(c)), stats: c => import('./cifras.js').then(x => x.drawStats(c)), more: c => import('./more.js').then(x => x.drawMore(c)) };
-const openReader = (...a) => import('./reader.js').then(m => m.openReader(...a));
+// Cada tipo de libro se abre con su lector: EPUB, PDF, cómic (CBZ) o audiolibro.
+const openReader = (id, ...a) => {
+  const b = byId(id);
+  if (b?.f === 'PDF') return import('./pdfreader.js').then(m => m.openPdf(id, ...a));
+  if (b?.f === 'Cómic') return import('./comicreader.js').then(m => m.openComic(id, ...a));
+  if (b?.audio) return import('./audioplayer.js').then(m => m.openAudio(id));
+  return import('./reader.js').then(m => m.openReader(id, ...a));
+};
 const ctx = {
   openReader, openSheet: id => openCover(id, { openReader }), add: openAdd,
   go: t => go(t),
@@ -164,3 +171,15 @@ window.__atajo = a => {
 // Bloqueo con PIN (si lo activaste) y revisión de logros nuevos
 iniciarBloqueo();
 { let lg = 0; const rv = () => import('./retos.js').then(m => m.revisarLogros()); onChange(() => { clearTimeout(lg); lg = setTimeout(rv, 4000); }); setTimeout(rv, 3500); }
+
+// Arrastrar y soltar: un EPUB, PDF, cómic, audiolibro o el archivo de subrayados de Kindle sobre la ventana
+addEventListener('dragover', e => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); });
+addEventListener('drop', async e => {
+  const fs = [...(e.dataTransfer?.files || [])]; if (!fs.length) return; e.preventDefault();
+  const { tipoDe, importarDocumento, importarAudio } = await import('./documentos.js');
+  const audio = fs.filter(f => tipoDe(f) === 'audio'), otros = fs.filter(f => tipoDe(f) && tipoDe(f) !== 'audio' && tipoDe(f) !== 'txt'), txt = fs.filter(f => tipoDe(f) === 'txt');
+  const { toast } = await import('./ui.js');
+  for (const f of txt) { const { leerClippings, abrirImportClippings } = await import('./clippings.js'); if (/clipping|subrayado|notas/i.test(f.name) || leerClippings(await f.text()).size) { abrirImportClippings(); break; } }
+  for (const f of otros) { try { const r = await importarDocumento(f); toast(r.estado === 'nuevo' ? `Agregado: ${r.libro.t}` : `Ya lo tenías: ${r.libro.t}`); } catch (err) { console.error(err); toast(`No pude leer «${f.name}»`); } }
+  if (audio.length) { try { const r = await importarAudio(audio); toast(r.estado === 'nuevo' ? `Audiolibro agregado: ${r.libro.t}` : 'Ya tenías ese audiolibro'); } catch (err) { console.error(err); toast('No pude leer los audios'); } }
+});
