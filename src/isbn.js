@@ -20,8 +20,8 @@ export async function lookupISBN(raw) {
 export const canScan = () => !!window.AndroidApp?.escanearIsbn || ('BarcodeDetector' in window && !!navigator.mediaDevices?.getUserMedia);
 
 // Enciende la cámara trasera y avisa cuando detecta un código de barras. Devuelve una función para apagarla.
-export async function startScan(video, onCode, alive = () => true) {
-  const det = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
+export async function startScan(video, onCode, alive = () => true, formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128']) {
+  const det = new BarcodeDetector({ formats });
   const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
   video.srcObject = stream; video.setAttribute('playsinline', ''); await video.play();
   let stop = false;

@@ -158,6 +158,8 @@ window.__abrirArchivo = async (url, nombre) => {
   } catch { console.error('abrirArchivo'); }
 };
 if (window.AndroidApp) setTimeout(avisarSiHay, 4000);
+setTimeout(() => import('./tanda5.js').then(m => m.avisarNovedades()), 2500);
+if (window.AndroidApp) setTimeout(() => import('./tanda5.js').then(m => m.aplicarFondoDiario()), 6000);
 if (window.AndroidApp) import('./widgets.js').then(w => w.iniciarWidgets());
 // Atajos al mantener pulsado el ícono, y botones de los widgets
 window.__compartirTexto = t => import('./frases.js').then(m => m.guardarTextoCompartido(t));

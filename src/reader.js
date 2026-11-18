@@ -1,6 +1,7 @@
 import ePub from 'epubjs';
 import { S, byId, getFile, setStatus, persistBook, addPages, addTime, saveNote, removeNote, emit } from './state.js';
 import { $, $$, esc, ic, toast } from './ui.js';
+import { hayAsistente, abrirTraductor, abrirAsistente, grabarNota } from './tanda5.js';
 import { ensureEpub } from './sync.js';
 import { dockear } from './dock.js';
 import { nombreDispositivo, hace } from './dispositivo.js';
@@ -331,9 +332,11 @@ export async function openReader(id, cfiTarget) {
     if (text.length < 3) return;
     selText = text; selCfi = cfiRange; selWin = contents.window; hideSave();
     bar = document.createElement('div'); bar.className = 'savebar';
-    bar.innerHTML = `<span>Subrayar</span>${Object.keys(COL).map(c => `<button class="hdotb" data-c="${c}" style="background:${COL[c]}" aria-label="Subrayar en ${c}"></button>`).join('')}<button class="defbtn" data-def>Definir</button>`;
+    bar.innerHTML = `<span>Subrayar</span>${Object.keys(COL).map(c => `<button class="hdotb" data-c="${c}" style="background:${COL[c]}" aria-label="Subrayar en ${c}"></button>`).join('')}<button class="defbtn" data-def>Definir</button><button class="defbtn" data-tr>Traducir</button>${hayAsistente() ? '<button class="defbtn" data-ia>Explicar</button>' : ''}`;
     $('.vwrap', root).appendChild(bar);
     bar.onclick = e => {
+      if (e.target.closest('[data-tr]')) { abrirTraductor(selText, b); return; }
+      if (e.target.closest('[data-ia]')) { let sec = ''; try { sec = contents.document.body.innerText || ''; } catch { } abrirAsistente(selText, sec, b); return; }
       if (e.target.closest('[data-def]')) { const pal = selText.split(/\s+/)[0]; import('./glosario.js').then(m => m.definir(pal, selText, b)); return; }
       const c = e.target.closest('[data-c]'); if (c) saveHL(c.dataset.c);
     };
@@ -342,12 +345,13 @@ export async function openReader(id, cfiTarget) {
   rendition.hooks.content.register(() => { // vuelve a marcar los subrayados de este libro, cada uno con su color
     S.notes.filter(n => n.bookId === b.id && n.cfi).forEach(n => paint(n.cfi, n.color || 'amarillo'));
   });
-  $('#rNotes', root).onclick = () => togglePanel('notes', `<h3>Subrayados</h3><div id="mkl"></div><div id="nl"></div><div class="row" style="margin-top:10px;gap:8px"><button class="btn ghost" id="expn" style="color:inherit">Exportar este libro</button><button class="btn ghost" id="pjn" style="color:inherit">Personajes</button></div>`, () => {
+  $('#rNotes', root).onclick = () => togglePanel('notes', `<h3>Subrayados</h3><div id="mkl"></div><div id="nl"></div><div class="row" style="margin-top:10px;gap:8px"><button class="btn ghost" id="expn" style="color:inherit">Exportar este libro</button><button class="btn ghost" id="pjn" style="color:inherit">Personajes</button><button class="btn ghost" id="vzn" style="color:inherit">Nota de voz</button></div>`, () => {
     $('#mkl', root).innerHTML = marks().length ? `<div class="small" style="margin-bottom:6px">Marcadores</div>${marks().slice().sort((x, y) => x.pct - y.pct).map((m, i) => `<div class="hit nt"><button data-mk="${i}" style="text-align:left;flex:1">${ic('bookmark')} Página marcada${m.pct ? ` · ${m.pct} %` : ''}</button><button data-mx="${m.t}" aria-label="Quitar marcador">×</button></div>`).join('')}<div class="small" style="margin:10px 0 6px">Subrayados</div>` : '';
     const ordenadas = marks().slice().sort((x, y) => x.pct - y.pct);
     $$('[data-mk]', root).forEach(x => x.onclick = () => { stopTTS(); rendition.display(ordenadas[+x.dataset.mk].cfi); if (innerWidth < 1000) hidePanel(); });
     $$('[data-mx]', root).forEach(x => x.onclick = async () => { b.marks = marks().filter(m => String(m.t) !== x.dataset.mx); await persistBook(b); x.closest('.nt').remove(); pintaMark(); });
     $('#pjn', root).onclick = () => import('./personajes.js').then(m => m.abrirPersonajes(b));
+    $('#vzn', root).onclick = () => grabarNota(b, Math.round((b.progress || 0) * 100) + ' %');
     $('#expn', root).onclick = () => import('./exportar.js').then(m => m.abrirExportar(b.id));
     const mine = S.notes.filter(n => n.bookId === b.id).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0));
     $('#nl', root).innerHTML = mine.length ? mine.map(n => `<div class="hit nt"><button data-g="${n.id}" style="text-align:left;flex:1"><i class="ndot" style="background:${COL[n.color] || COL.amarillo}"></i>${esc(n.text.slice(0, 140))}${n.text.length > 140 ? '…' : ''}</button><button data-c="${n.id}" aria-label="Nota">${ic('edit')}</button><button data-x="${n.id}" aria-label="Quitar">×</button></div>${n.comment ? `<div class="qnote" style="margin:-2px 0 8px 18px">${esc(n.comment)}</div>` : ''}`).join('') : '<div class="small">Aún no hay subrayados. Selecciona un texto y elige un color.</div>';

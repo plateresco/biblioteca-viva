@@ -51,6 +51,7 @@ dependencies {
     implementation "com.google.android.gms:play-services-auth:21.2.0"
     // Reconocimiento de texto en el telefono (para escanear paginas de libros de papel)
     implementation "com.google.mlkit:text-recognition:16.0.1"
+    implementation "com.google.mlkit:translate:17.0.3"
     // Voz neuronal sin conexion (sherpa-onnx). El flujo de GitHub baja el .aar a app/libs antes de compilar.
     implementation fileTree(dir: "libs", include: ["*.aar"])
     implementation "org.apache.commons:commons-compress:1.21"

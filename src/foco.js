@@ -62,12 +62,14 @@ async function terminar(manual = false) {
   const real = Math.max(1, Math.round(((x.dur * 60) - (manual ? Math.max(0, (x.fin - Date.now()) / 1000) : 0)) / 60)), dp = Math.max(0, pagesToday() - x.p0);
   const o = openSheet(`<h3>${manual ? 'Sesión terminada' : '¡Sesión completa!'}</h3><div class="sub">${real} minutos de lectura${dp ? ` · ${dp} páginas` : ''}.</div>
     ${x.vioLector ? '' : `<label style="display:grid;gap:4px;margin-top:12px;font-size:13px">¿Cuántas páginas leíste?<input id="fp" type="number" min="0" value="0" inputmode="numeric"></label>`}
+    <div class="sub" style="margin-top:12px">¿Cómo fue esta sesión?</div><div class="row" id="fmo" style="gap:6px;margin-top:6px">${['Tranquila', 'Absorbente', 'Cansada', 'Difícil'].map(m => `<button class="chip" data-m="${m}" aria-pressed="false">${m}</button>`).join('')}</div>
     ${!manual ? '<p style="margin-top:12px;font-style:italic">Descansa unos minutos. Estírate y toma agua.</p>' : ''}
     <div class="row" style="margin-top:14px"><button class="btn" id="fok">Guardar</button></div>`);
+  let mood = ''; $$('#fmo .chip', o).forEach(c => c.onclick = () => { mood = mood === c.dataset.m ? '' : c.dataset.m; $$('#fmo .chip', o).forEach(x => x.setAttribute('aria-pressed', x.dataset.m === mood)); });
   $('#fok', o).onclick = async () => {
     const pg = +($('#fp', o)?.value || 0), id = x.libroId;
     if (!x.vioLector && id) { if (pg > 0) await addPages(id, Math.min(pg, 200)); await addTime(id, real * 60); }
-    sesiones().push({ t: Date.now(), d: today(), min: real, libro: id ? byId(id)?.uid || '' : '', pag: dp + (x.vioLector ? 0 : pg) });
+    sesiones().push({ t: Date.now(), d: today(), min: real, libro: id ? byId(id)?.uid || '' : '', pag: dp + (x.vioLector ? 0 : pg), ...(mood ? { mood } : {}) });
     S.meta.sesiones = sesiones().slice(-300); await saveMeta(); closeSheet(); toast('Sesión guardada');
   };
 }

@@ -59,7 +59,8 @@ public class MainActivity extends Activity {
     static MainActivity instancia;
     VozNeuronal neural;
     VozNeuronal vn() { if (neural == null) neural = new VozNeuronal(this, c -> js(c)); return neural; }
-    static final int REQ_FOTO = 44;
+    static final int REQ_FOTO = 44, REQ_DICTADO = 45, REQ_MIC = 46;
+    android.webkit.PermissionRequest micPendiente;
     Uri fotoUri;
     String pendienteAtajo = null, pendienteTexto = null;
     boolean volumenPagina = false;
@@ -117,6 +118,14 @@ public class MainActivity extends Activity {
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
+            @Override public void onPermissionRequest(final android.webkit.PermissionRequest req) {
+                runOnUiThread(() -> {
+                    boolean mic = false; for (String r : req.getResources()) if (android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) mic = true;
+                    if (!mic) { req.deny(); return; }
+                    if (Build.VERSION.SDK_INT < 23 || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { req.grant(new String[]{android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE}); }
+                    else { micPendiente = req; requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC); }
+                });
+            }
             @Override public boolean onShowFileChooser(WebView w, ValueCallback<Uri[]> cb, FileChooserParams p) {
                 if (chooserCb != null) chooserCb.onReceiveValue(null);
                 chooserCb = cb;
@@ -165,6 +174,10 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == REQ_DICTADO) {
+            if (res == RESULT_OK && data != null) { java.util.ArrayList<String> l = data.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS); if (l != null && !l.isEmpty()) { js("window.__dictado&&window.__dictado(" + q(l.get(0)) + ")"); return; } }
+            js("window.__dictado&&window.__dictado('')"); return;
+        }
         if (req == REQ_FOTO) {
             if (res != RESULT_OK || fotoUri == null) { js("window.__ocrError&&window.__ocrError('Cancelaste la foto.')"); return; }
             try {
@@ -243,8 +256,14 @@ public class MainActivity extends Activity {
     void atajo(String a) { js("setTimeout(function(){window.__atajo&&window.__atajo(" + q(a) + ")},900)"); }
 
     static boolean hostPermitido(String u) {
-        try { String h = new URL(u).getHost().toLowerCase(); return "https".equals(new URL(u).getProtocol()) && (h.equals("gutenberg.org") || h.endsWith(".gutenberg.org") || h.equals("archive.org") || h.endsWith(".archive.org")); }
-        catch (Exception e) { return false; }
+        try {
+            URL url = new URL(u); String h = url.getHost().toLowerCase(), pr = url.getProtocol();
+            if (!"https".equals(pr) && !"http".equals(pr)) return false;
+            boolean local = h.equals("localhost") || h.endsWith(".local") || h.matches("10\\.\\d+\\.\\d+\\.\\d+") || h.matches("192\\.168\\.\\d+\\.\\d+") || h.matches("172\\.(1[6-9]|2\\d|3[01])\\.\\d+\\.\\d+");
+            if (local) return true;      // catalogos propios en la red de la casa (Calibre, etc.)
+            if (!"https".equals(pr)) return false;
+            return h.equals("gutenberg.org") || h.endsWith(".gutenberg.org") || h.equals("archive.org") || h.endsWith(".archive.org") || h.equals("standardebooks.org") || h.endsWith(".standardebooks.org") || h.equals("feedbooks.com") || h.endsWith(".feedbooks.com");
+        } catch (Exception e) { return false; }
     }
 
     String nombreDe(Uri u) {
@@ -256,7 +275,13 @@ public class MainActivity extends Activity {
     }
     void entregarArchivo(String url, String nombre) { js("window.__abrirArchivo&&window.__abrirArchivo(" + q(url) + "," + q(nombre) + ")"); }
 
-    @Override public void onRequestPermissionsResult(int r, String[] p, int[] g) { super.onRequestPermissionsResult(r, p, g); }
+    @Override public void onRequestPermissionsResult(int r, String[] p, int[] g) {
+        super.onRequestPermissionsResult(r, p, g);
+        if (r == REQ_MIC && micPendiente != null) {
+            if (g.length > 0 && g[0] == PackageManager.PERMISSION_GRANTED) micPendiente.grant(new String[]{android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE}); else micPendiente.deny();
+            micPendiente = null;
+        }
+    }
 
     /* ---------- Lo que la web puede pedirle a Android ---------- */
     class Puente {
@@ -451,6 +476,59 @@ public class MainActivity extends Activity {
                         .addOnSuccessListener(b -> js("window.__isbnEscaneado&&window.__isbnEscaneado(" + q(b.getRawValue()) + ")"))
                         .addOnCanceledListener(() -> js("window.__isbnCancelado&&window.__isbnCancelado()"))
                         .addOnFailureListener(e -> js("window.__isbnError&&window.__isbnError(" + q(String.valueOf(e.getMessage())) + ")"));
+            });
+        }
+
+        /* Fondo de pantalla (inicio, bloqueo o ambos) con una imagen que dibuja la web */
+        @JavascriptInterface public void ponerFondo(final String b64, final String donde) {
+            new Thread(() -> {
+                try {
+                    byte[] d = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                    android.graphics.Bitmap bm = android.graphics.BitmapFactory.decodeByteArray(d, 0, d.length);
+                    android.app.WallpaperManager wm = android.app.WallpaperManager.getInstance(MainActivity.this);
+                    int f = "bloqueo".equals(donde) ? android.app.WallpaperManager.FLAG_LOCK : "inicio".equals(donde) ? android.app.WallpaperManager.FLAG_SYSTEM : (android.app.WallpaperManager.FLAG_SYSTEM | android.app.WallpaperManager.FLAG_LOCK);
+                    wm.setBitmap(bm, null, true, f);
+                    js("window.__fondoOk&&window.__fondoOk()");
+                } catch (Throwable e) { js("window.__fondoError&&window.__fondoError()"); }
+            }).start();
+        }
+
+        /* Lector de codigos QR de Google (no necesita permiso de camara) */
+        @JavascriptInterface public void escanearQr() {
+            runOnUiThread(() -> {
+                GmsBarcodeScannerOptions op = new GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build();
+                GmsBarcodeScanning.getClient(MainActivity.this, op).startScan()
+                        .addOnSuccessListener(b -> js("window.__qrEscaneado&&window.__qrEscaneado(" + q(b.getRawValue()) + ")"))
+                        .addOnCanceledListener(() -> js("window.__qrEscaneado&&window.__qrEscaneado('')"))
+                        .addOnFailureListener(e -> js("window.__qrEscaneado&&window.__qrEscaneado('')"));
+            });
+        }
+
+        /* Dictado: el reconocedor de voz del sistema devuelve el texto */
+        @JavascriptInterface public void dictar() {
+            runOnUiThread(() -> {
+                try {
+                    Intent i = new Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "es-ES").putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Dicta tu nota");
+                    startActivityForResult(i, REQ_DICTADO);
+                } catch (Exception e) { js("window.__dictado&&window.__dictado('')"); }
+            });
+        }
+
+        /* Traductor sin conexion de Google (ML Kit): se baja el idioma una vez y despues traduce en el telefono */
+        @JavascriptInterface public void traducir(final String id, final String texto, final String de) {
+            runOnUiThread(() -> {
+                try {
+                    String src = com.google.mlkit.nl.translate.TranslateLanguage.fromLanguageTag(de);
+                    if (src == null) { js("window.__trad&&window.__trad(" + q(id) + ",0," + q("Idioma no disponible") + ")"); return; }
+                    final com.google.mlkit.nl.translate.Translator t = com.google.mlkit.nl.translate.Translation.getClient(new com.google.mlkit.nl.translate.TranslatorOptions.Builder()
+                            .setSourceLanguage(src).setTargetLanguage(com.google.mlkit.nl.translate.TranslateLanguage.SPANISH).build());
+                    t.downloadModelIfNeeded()
+                            .addOnSuccessListener(v -> t.translate(texto)
+                                    .addOnSuccessListener(r -> js("window.__trad&&window.__trad(" + q(id) + ",1," + q(r) + ")"))
+                                    .addOnFailureListener(e -> js("window.__trad&&window.__trad(" + q(id) + ",0," + q("No pude traducir.") + ")")))
+                            .addOnFailureListener(e -> js("window.__trad&&window.__trad(" + q(id) + ",0," + q("Necesito conexion la primera vez para bajar el idioma.") + ")"));
+                } catch (Throwable e) { js("window.__trad&&window.__trad(" + q(id) + ",0," + q("No pude traducir.") + ")"); }
             });
         }
 

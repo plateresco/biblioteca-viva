@@ -15,6 +15,8 @@ export function cumple(b, r) {
   if (r.autor && !norm(b.a).includes(norm(r.autor))) return false;
   if (r.genero && !(b.gen || []).some(g => norm(g).includes(norm(r.genero)))) return false;
   if (r.estrellas && (b.rating || 0) < r.estrellas) return false;
+  if (r.amin && !(b.anio >= r.amin)) return false;
+  if (r.amax && !(b.anio && b.anio <= r.amax)) return false;
   if (r.espera && !(b.s === 'porleer' && dias(b.addedAt) >= r.espera)) return false;
   return true;
 }
@@ -32,8 +34,9 @@ const CAMPOS = (r = {}) => `
   <div class="two"><label>Páginas, mínimo<input name="pmin" type="number" min="0" step="50" value="${r.pmin || ''}" inputmode="numeric"></label><label>Páginas, máximo<input name="pmax" type="number" min="0" step="50" value="${r.pmax || ''}" inputmode="numeric"></label></div>
   <div class="two"><label>Formato<select name="formato"><option value="">Cualquiera</option>${['EPUB', 'Papel', 'Audio', 'PDF', 'Cómic'].map(f => `<option ${r.formato === f ? 'selected' : ''}>${f}</option>`).join('')}</select></label><label>Calificación mínima<select name="estrellas"><option value="0">Cualquiera</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${r.estrellas === n ? 'selected' : ''}>${n}+ estrellas</option>`).join('')}</select></label></div>
   <div class="two"><label>Autor contiene<input name="autor" value="${esc(r.autor || '')}"></label><label>Género contiene<input name="genero" value="${esc(r.genero || '')}"></label></div>
+  <div class="two"><label>Publicado desde el año<input name="amin" type="number" step="1" value="${r.amin || ''}" inputmode="numeric"></label><label>Publicado hasta el año<input name="amax" type="number" step="1" value="${r.amax || ''}" inputmode="numeric"></label></div>
   <label>Esperando hace al menos (días, solo «Por leer»)<input name="espera" type="number" min="0" step="30" value="${r.espera || ''}" inputmode="numeric"></label>`;
-const leer = f => { const d = new FormData(f), r = {}; r.estado = d.get('estado'); for (const k of ['pmin', 'pmax', 'espera', 'estrellas']) { const v = +d.get(k); if (v) r[k] = v; } for (const k of ['formato', 'autor', 'genero']) { const v = String(d.get(k) || '').trim(); if (v) r[k] = v; } return r; };
+const leer = f => { const d = new FormData(f), r = {}; r.estado = d.get('estado'); for (const k of ['pmin', 'pmax', 'espera', 'estrellas', 'amin', 'amax']) { const v = +d.get(k); if (v) r[k] = v; } for (const k of ['formato', 'autor', 'genero']) { const v = String(d.get(k) || '').trim(); if (v) r[k] = v; } return r; };
 
 export function editarSmart(sc, alGuardar) {
   const nuevo = !sc; sc = sc || { id: newId(), n: '', r: { estado: 'porleer' } };

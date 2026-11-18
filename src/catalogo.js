@@ -8,7 +8,7 @@ import { $, $$, esc, openSheet, closeSheet, toast } from './ui.js';
 export const disponible = () => !!(A && A.httpGet && A.descargarEpub);
 const BASE = 'https://www.gutenberg.org';
 
-function http(url) {
+export function http(url) {
   return new Promise((res, rej) => {
     const id = Math.random().toString(36).slice(2), t = setTimeout(() => rej(new Error('El catálogo tardó demasiado en responder.')), 25000);
     const prev = window.__httpRes;

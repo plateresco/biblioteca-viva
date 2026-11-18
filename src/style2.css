@@ -625,3 +625,18 @@ html.bloq body>*:not(#lockscr){visibility:hidden}
 .recap2{background:var(--surface2);border-left:3px solid var(--accent);border-radius:8px;padding:11px 12px;font:italic 400 15px/1.5 var(--f-read)}
 b.bio{font-weight:800}
 #warm{position:fixed;inset:0;z-index:47;pointer-events:none;background:rgba(255,140,40,.13);mix-blend-mode:multiply}
+
+/* ---- Tanda 5 ---- */
+.nov5{display:grid;gap:8px;font-size:13.5px;margin-top:6px}.nov5 div{display:flex;gap:9px;align-items:flex-start}
+.nov5 i{font-style:normal;font-size:10px;font-weight:700;border-radius:6px;padding:2px 6px;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);flex:none;margin-top:2px}
+.quote5{font:italic 400 15px/1.5 var(--f-read);padding:12px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);margin-top:10px}
+.prog5{height:8px;border-radius:8px;background:var(--surface2);overflow:hidden;border:1px solid var(--line);margin:10px 0}.prog5 i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.chk5{display:grid;gap:6px}.chk5>div{display:flex;gap:10px;align-items:center;padding:9px 11px;border-radius:12px;background:var(--surface2);border:1px solid var(--line);font-size:14px}
+.chk5>div.ok{opacity:.7}.tick5{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:12px;flex:none;color:var(--accent-ink,#fff)}.chk5>div.ok .tick5{background:var(--accent);border-color:var(--accent)}
+.era5{display:grid;grid-template-columns:130px 1fr 28px;gap:8px;align-items:center;font-size:12.5px;margin:6px 0}.era5 i{display:block;height:10px;border-radius:6px;background:var(--accent);min-width:2px}.era5 b{text-align:right}
+.lrow5{display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line);font-size:14px}.lrow5:first-of-type{border-top:0}.sp5{width:8px;height:30px;border-radius:2px;flex:none}
+.vn5{display:flex;gap:8px;align-items:center;padding:9px 11px;border-radius:12px;background:var(--surface2);border:1px solid var(--line);font-size:13.5px;flex-wrap:wrap}
+.rec5{width:76px;height:76px;border-radius:50%;border:0;background:#E07A70;color:#fff;font:700 13px var(--f-body);cursor:pointer}.rec5.on{animation:rec5p 1s infinite}
+@keyframes rec5p{0%,100%{box-shadow:0 0 0 0 rgba(224,122,112,.6)}50%{box-shadow:0 0 0 14px rgba(224,122,112,0)}}
+.wd5{border-bottom:1px dotted var(--accent);cursor:pointer}
+@media (prefers-reduced-motion:reduce){.rec5.on{animation:none}}

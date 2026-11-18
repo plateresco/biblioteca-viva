@@ -26,12 +26,14 @@ import { esApp } from './native.js';
 import { buscarActualizacion, ofrecerInstalar, versionActual, autoActivo, fijarAuto } from './actualizar.js';
 import { imgShelf, shareImage } from './share.js';
 import { sobrantes, quitarRepetidos } from './importar.js';
+import { MENU5, PAGES5 } from './tanda5.js';
 
 import { HOY_CARDS } from './hoy.js';
 let sub = null;
 export const openMore = p => { sub = p; };
 
 const MENU = [
+  MENU5[0],
   ['colecciones', 'Colecciones y préstamos', () => `${S.meta.cols.length} colecciones · ${S.books.filter(b => b.loan).length} prestados`, 'tag'],
   ['deseos', 'Lista de deseos', () => `${S.meta.wish.length} libros por conseguir`, 'heart'],
   ['autores', 'Autores', () => `${new Set(S.books.map(b => b.a)).size} autores`, 'users'],
@@ -60,6 +62,7 @@ const MENU = [
   ['ia', 'Recomendaciones con IA', () => 'Pregunta lista para copiar', 'spark'],
   ['ayuda', 'Ayuda', () => 'Primeros pasos', 'info'],
   ...(esApp ? [['vozneuronal', 'Voz neuronal', () => 'Voces sin conexión, más naturales', 'phones']] : []),
+  ...MENU5.slice(1),
   ['diagnostico', 'Diagnóstico', () => { try { const n = JSON.parse(localStorage.getItem('bv-errs') || '[]').length; return n ? `${n} errores registrados` : 'Sin errores registrados'; } catch { return ''; } }, 'info'],
   ...(esApp ? [['version', 'Actualizaciones', () => 'Versión ' + (versionActual()?.name || ''), 'download']] : []),
 ];
@@ -74,10 +77,11 @@ export function drawMore(ctx) {
   const title = MENU.find(m => m[0] === sub)[1];
   v.innerHTML = `<div class="apphead"><div class="row" style="gap:10px;align-items:center"><button class="iconbtn" id="bk" aria-label="Volver">${ic('back')}</button><div><h2>${title}</h2></div></div></div><div class="pad" id="mb"></div>`;
   $('#bk', v).onclick = () => { sub = null; drawMore(ctx); };
-  PAGES[sub]($('#mb', v), ctx, () => drawMore(ctx));
+  PAGES[sub]($('#mb', v), ctx, () => drawMore(ctx), k => { sub = k; drawMore(ctx); v.scrollTop = 0; });
 }
 
 const PAGES = {
+  ...PAGES5,
   /* ---- Colecciones y préstamos ---- */
   colecciones(b, ctx, redraw) {
     const loans = S.books.filter(x => x.loan);
