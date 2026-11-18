@@ -1,6 +1,6 @@
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-export const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches || (() => { try { return !!JSON.parse(localStorage.getItem('bv-prefs') || '{}').calma; } catch { return false; } })();
 export const esc =s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const P = {
@@ -72,11 +72,17 @@ export function openSheet(html, { onClose } = {}) {
   closeSheet();
   const o = document.createElement('div');
   o.className = 'overlay'; o.id = 'sheet';
-  o.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><button class="iconbtn close" data-x aria-label="Cerrar">${ic('x')}</button>${html}</div>`;
+  o.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="grab" aria-hidden="true"></div><button class="iconbtn close" data-x aria-label="Cerrar">${ic('x')}</button>${html}</div>`;
   document.body.appendChild(o);
   const done = () => { closeSheet(); onClose && onClose(); };
   o.addEventListener('click', e => { if (e.target === o || e.target.closest('[data-x]')) done(); });
   o._done = done;
+  // asa: arrastrar hacia abajo cierra la hoja
+  const sh = o.querySelector('.sheet'), gr = o.querySelector('.grab'); let y0 = null, dy = 0;
+  gr.addEventListener('pointerdown', e => { y0 = e.clientY; dy = 0; gr.setPointerCapture(e.pointerId); sh.style.transition = 'none'; });
+  gr.addEventListener('pointermove', e => { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); sh.style.transform = `translateY(${dy}px)`; });
+  const fin = () => { if (y0 === null) return; y0 = null; sh.style.transition = 'transform .2s'; if (dy > 90) { sh.style.transform = 'translateY(100%)'; setTimeout(done, 180); } else sh.style.transform = ''; };
+  gr.addEventListener('pointerup', fin); gr.addEventListener('pointercancel', fin);
   return o;
 }
 export function closeSheet() { const o = $('#sheet'); if (o) o.remove(); }

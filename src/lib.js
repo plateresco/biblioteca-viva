@@ -85,9 +85,7 @@ export function drawLib(ctx) {
     <div class="row" style="gap:8px"><button class="iconbtn" id="srch" aria-label="Buscar">${ic('search')}</button><button class="iconbtn" id="syn" aria-label="Sincronizar con Google Drive">${ic('cloud')}</button>
     <button class="iconbtn" id="reo" aria-pressed="${u.reorder}" aria-label="Reordenar libros" ${S.books.length < 2 ? 'hidden' : ''}>${ic('move')}</button></div></div>
   ${S.books.length ? `<div class="tb"><div class="fbar"><div class="chips" id="chips"><span class="ind" id="ind"></span>${FL.map(([k, n]) => `<button class="chip" data-f="${k}" aria-pressed="${f === k}">${n} <em>${count(k)}</em></button>`).join('')}</div></div>
-    <div class="vw" role="group" aria-label="Vista">${[['shelf', 'shelf', 'Estantería'], ['grid', 'grid', 'Portadas'], ['list', 'list', 'Lista']].map(([k, i, n]) => `<button data-v="${k}" aria-pressed="${view === k}" aria-label="${n}" title="${n}">${ic(i)}</button>`).join('')}</div></div>
-   <div class="tb2"><span class="lbl">Orden</span><span class="mini-seg" id="ordseg">${ORDENES.map(([k, n]) => `<button data-o="${k}" aria-pressed="${(P.sort || 'orden') === k}">${n}</button>`).join('')}</span>${view === 'shelf' ? `<span class="lbl">Pisos</span><span class="mini-seg"><button data-pm="auto" aria-pressed="${S.meta.mode !== 'manual'}">Automático</button><button data-pm="manual" aria-pressed="${S.meta.mode === 'manual'}">Manual</button></span>` : ''}
-     ${cols.length || S.books.some(b => b.loan) ? `<span class="lbl" style="margin-left:6px">Colección</span><button class="cchip" data-c="" aria-pressed="${u.col === null}">Todas</button>${cols.map(c => `<button class="cchip" data-c="${c.id}" aria-pressed="${u.col === c.id}">${esc(c.n)}</button>`).join('')}${S.books.some(b => b.loan) ? `<button class="cchip" data-c="_loan" aria-pressed="${u.col === '_loan'}">Prestados</button>` : ''}` : ''}</div>` : ''}
+    <button class="chip fbtn" id="flt" aria-label="Filtros y orden">${ic('list')} Filtros${(P.sort && P.sort !== 'orden') || u.col !== null || manual ? '<i class="fdot"></i>' : ''}</button><div class="vw" role="group" aria-label="Vista">${[['shelf', 'shelf', 'Estantería'], ['grid', 'grid', 'Portadas'], ['list', 'list', 'Lista']].map(([k, i, n]) => `<button data-v="${k}" aria-pressed="${view === k}" aria-label="${n}" title="${n}">${ic(i)}</button>`).join('')}</div></div>` : ''}
   ${u.reorder ? `<div class="hint" style="margin:4px 20px 8px">${u.pick ? 'Ahora toca el libro donde quieres dejarlo.' : 'Toca un libro para levantarlo, o mantenlo presionado para arrastrarlo.'}</div>` : ''}
   ${body}
   ${view === 'shelf' ? `<div class="shelfrow"><div class="shelf" style="align-items:center;height:150px"><div class="slots"><button class="slot" id="addBtn">${ic('plus')}Agregar libros</button></div></div><div class="board"></div></div>` : `<div style="padding:8px 18px 20px"><button class="slot" id="addBtn" style="height:90px;width:100%">${ic('plus')}Agregar libros</button></div>`}
@@ -106,12 +104,20 @@ export function drawLib(ctx) {
       applyDim(v);
     });
   }
-  $$('.cchip', v).forEach(c => c.onclick = () => { u.col = c.dataset.c === '' ? null : c.dataset.c; $$('.cchip', v).forEach(x => x.setAttribute('aria-pressed', x === c)); applyDim(v); });
-  $$('#ordseg button', v).forEach(b => b.onclick = () => { setPref('sort', b.dataset.o); if (b.dataset.o !== 'orden' && u.reorder) { u.reorder = false; u.pick = null; toast('Para mover libros a mano, vuelve a «Mi orden»'); } drawLib(ctx); });
   $$('.vw button', v).forEach(b => b.onclick = () => { setPref('view', b.dataset.v); drawLib(ctx); });
-  $$('[data-pm]', v).forEach(b => b.onclick = async () => {
-    if (b.dataset.pm === 'manual' && S.meta.mode !== 'manual') { await startManual(packRows(S.books, avail)); toast('Ahora decides tú qué va en cada piso'); }
-    else if (b.dataset.pm === 'auto' && S.meta.mode !== 'auto') { S.meta.mode = 'auto'; await saveMeta(); toast('Los pisos se llenan solos'); }
+  $('#flt', v)?.addEventListener('click', () => {
+    const o = openSheet(`<h3>Filtros y orden</h3><div class="sub">Cambia cómo se ven y se ordenan tus libros.</div>
+      <div class="lbl" style="margin-top:14px">Orden</div><div class="row" id="ordseg" style="gap:6px;margin-top:6px">${ORDENES.map(([k, n]) => `<button class="chip" data-o="${k}" aria-pressed="${(P.sort || 'orden') === k}">${n}</button>`).join('')}</div>
+      ${view === 'shelf' ? `<div class="lbl" style="margin-top:14px">Pisos</div><div class="row" style="gap:6px;margin-top:6px"><button class="chip" data-pm="auto" aria-pressed="${S.meta.mode !== 'manual'}">Automático</button><button class="chip" data-pm="manual" aria-pressed="${S.meta.mode === 'manual'}">Manual</button></div>` : ''}
+      ${cols.length || S.books.some(b => b.loan) ? `<div class="lbl" style="margin-top:14px">Colección</div><div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="chip" data-c="" aria-pressed="${u.col === null}">Todas</button>${cols.map(c => `<button class="chip" data-c="${c.id}" aria-pressed="${u.col === c.id}">${esc(c.n)}</button>`).join('')}${S.books.some(b => b.loan) ? `<button class="chip" data-c="_loan" aria-pressed="${u.col === '_loan'}">Prestados</button>` : ''}</div>` : ''}
+      <div class="row" style="margin-top:18px"><button class="btn" data-x>Listo</button></div>`);
+    $$('[data-o]', o).forEach(b => b.onclick = () => { setPref('sort', b.dataset.o); if (b.dataset.o !== 'orden' && u.reorder) { u.reorder = false; u.pick = null; toast('Para mover libros a mano, vuelve a «Mi orden»'); } closeSheet(); drawLib(ctx); });
+    $$('[data-c]', o).forEach(c => c.onclick = () => { u.col = c.dataset.c === '' ? null : c.dataset.c; $$('[data-c]', o).forEach(x => x.setAttribute('aria-pressed', x === c)); applyDim(v); $('#flt', v)?.classList.toggle('on', u.col !== null); });
+    $$('[data-pm]', o).forEach(b => b.onclick = async () => {
+      if (b.dataset.pm === 'manual' && S.meta.mode !== 'manual') { await startManual(packRows(S.books, avail)); toast('Ahora decides tú qué va en cada piso'); }
+      else if (b.dataset.pm === 'auto' && S.meta.mode !== 'auto') { S.meta.mode = 'auto'; await saveMeta(); toast('Los pisos se llenan solos'); }
+      closeSheet();
+    });
   });
   $('#reo', v).onclick = () => { if (P.sort && P.sort !== 'orden' && !u.reorder) { setPref('sort', 'orden'); toast('Volvió «Mi orden» para que puedas mover libros'); } u.reorder = !u.reorder; u.pick = null; drawLib(ctx); };
   $$('#addBtn', v).forEach(b => b.onclick = openAdd);

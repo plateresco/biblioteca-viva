@@ -1,6 +1,6 @@
 // Preferencias de este dispositivo (tema, vista, metas, recordatorio, tamaño de texto).
 const KEY = 'bv-prefs';
-const DEF = { theme: 'auto', view: 'shelf', goalDay: 20, goalYear: 12, reminder: { on: false, time: '21:30' }, textScale: 100, accent: null, wood: null, spine: 'cuero', titleFont: 'young', dens: 'comoda', lampara: 'auto', hoyOrder: [], hoyHide: [] };
+const DEF = { theme: 'auto', view: 'shelf', goalDay: 20, goalYear: 12, reminder: { on: false, time: '21:30' }, textScale: 100, accent: null, wood: null, spine: 'cuero', titleFont: 'young', dens: 'comoda', lampara: 'auto', hoyOrder: [], hoyHide: [], colorLibro: true, rectas: false, calma: false };
 let stored = {};
 try { stored = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { }
 export const P = { ...DEF, ...stored, reminder: { ...DEF.reminder, ...(stored.reminder || {}) } };
@@ -10,6 +10,9 @@ export const THEMES = [
   ['noche', 'Noche', 'Sala oscura con madera cálida', '#16262A'],
   ['dia', 'Día', 'Más clara, para leer afuera', '#EFE6D2'],
   ['sepia', 'Sepia', 'Cálido y suave para la vista', '#2B1F14'],
+  ['negro', 'Negro OLED', 'Negro real; ahorra batería', '#000000'],
+  ['papel', 'Papel', 'Cálido y claro, como un libro', '#F1E5CE'],
+  ['hora', 'Por horario', 'Día de día y noche de noche', '#16262A'],
   ['contraste', 'Alto contraste', 'Máxima legibilidad', '#000000'],
 ];
 
@@ -36,11 +39,13 @@ export function applyPrefs() {
   set('--f-display', FUENTES.find(f => f[0] === P.titleFont)?.[2] || null);
   r.dataset.lampara = lamparaOn() ? 'si' : 'no';
   r.dataset.spine = P.spine || 'cuero'; r.dataset.dens = P.dens || 'comoda';
-  if (P.theme === 'auto') r.removeAttribute('data-theme'); else r.dataset.theme = P.theme;
+  const th = P.theme === 'hora' ? (new Date().getHours() >= 19 || new Date().getHours() < 7 ? 'noche' : 'dia') : P.theme;
+  if (th === 'auto') r.removeAttribute('data-theme'); else r.dataset.theme = th;
+  r.dataset.rect = P.rectas ? 'si' : 'no'; r.dataset.calma = P.calma ? 'si' : 'no';
   r.style.setProperty('--ts', P.textScale / 100);
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.content = P.theme === 'dia' ? '#EFE6D2' : P.theme === 'contraste' ? '#000000' : '#16262A';
+  if (m) m.content = th === 'dia' ? '#EFE6D2' : th === 'papel' ? '#F1E5CE' : th === 'negro' || th === 'contraste' ? '#000000' : '#16262A';
   setTimeout(() => import('./native.js').then(n => n.pintarBarras()), 30);
 }
 applyPrefs();
-setInterval(() => { document.documentElement.dataset.lampara = lamparaOn() ? 'si' : 'no'; }, 600000);
+setInterval(() => { if (P.theme === 'hora') applyPrefs(); document.documentElement.dataset.lampara = lamparaOn() ? 'si' : 'no'; }, 600000);

@@ -34,6 +34,7 @@ export const openMore = p => { sub = p; };
 
 const MENU = [
   MENU5[0],
+  ['cifras', 'Cifras', () => 'Tu lectura en números y el año en libros', 'chart'],
   ['colecciones', 'Colecciones y préstamos', () => `${S.meta.cols.length} colecciones · ${S.books.filter(b => b.loan).length} prestados`, 'tag'],
   ['deseos', 'Lista de deseos', () => `${S.meta.wish.length} libros por conseguir`, 'heart'],
   ['autores', 'Autores', () => `${new Set(S.books.map(b => b.a)).size} autores`, 'users'],
@@ -67,11 +68,37 @@ const MENU = [
   ...(esApp ? [['version', 'Actualizaciones', () => 'Versión ' + (versionActual()?.name || ''), 'download']] : []),
 ];
 
+const favoritos = () => { try { return JSON.parse(localStorage.getItem('bv-fav') || '[]'); } catch { return []; } };
+const GRUPOS = [
+  ['Leer', '#62B7AB', ['foco', 'plan', 'retos', 'glosario', 'personajes', 'buscar', 'traducir', 'notasvoz', 'asistente', 'vozneuronal', 'recordatorio']],
+  ['Mi biblioteca', '#E4B861', ['colecciones', 'smart', 'deseos', 'autores', 'diario', 'importar', 'estanteria', 'catalogo', 'opds', 'datos', 'linea', 'portadas', 'repetidos', 'espacio', 'papelera']],
+  ['Datos y compartir', '#C9809A', ['cifras', 'compartir', 'webshelf', 'qr', 'fondos']],
+  ['Cuenta y copias', '#8FA8F0', ['sync', 'privacidad', 'perfiles']],
+  ['La app', '#B48AE0', ['primeros', 'novedades', 'apariencia', 'atajos', 'ia', 'ayuda', 'diagnostico', 'version']],
+];
 export function drawMore(ctx) {
   const v = $('#v-more');
   if (!sub) {
-    v.innerHTML = `<div class="apphead"><div><h2>Más</h2><div class="sub">Colecciones, ajustes y herramientas</div></div></div><div class="pad"><div class="mlist">${MENU.map(([k, n, s, i]) => `<button class="ml" data-k="${k}"><span class="mi">${ic(i)}</span><span class="mt"><b>${n}</b><small>${s()}</small></span>${ic('chevron')}</button>`).join('')}</div></div>`;
-    $$('.ml', v).forEach(b => b.onclick = () => { sub = b.dataset.k; drawMore(ctx); v.scrollTop = 0; });
+    const norma = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    let q = '';
+    const pinta = () => {
+      const favs = favoritos(), fila = ([k, n, sf, i]) => `<div class="mlw"><button class="ml" data-k="${k}"><span class="mi">${ic(i)}</span><span class="mt"><b>${n}</b><small>${sf()}</small></span></button><button class="mstar" data-s="${k}" aria-pressed="${favs.includes(k)}" aria-label="${favs.includes(k) ? 'Quitar de favoritos' : 'Fijar en favoritos'}">${ic('star')}</button></div>`;
+      const ok = m => !q || norma(m[1] + ' ' + m[2]()).includes(norma(q));
+      let h = '';
+      if (!q && favs.length) h += `<div class="grp5">Favoritos</div><div class="mlist">${favs.map(k => MENU.find(m => m[0] === k)).filter(Boolean).map(fila).join('')}</div>`;
+      for (const [gn, color, claves] of GRUPOS) {
+        const items = claves.map(k => MENU.find(m => m[0] === k)).filter(m => m && ok(m));
+        if (items.length) h += `<div class="grp5" style="--g:${color}">${gn}</div><div class="mlist" style="--g:${color}">${items.map(fila).join('')}</div>`;
+      }
+      const sueltos = MENU.filter(m => !GRUPOS.some(g => g[2].includes(m[0])) && ok(m));
+      if (sueltos.length) h += `<div class="grp5">Otros</div><div class="mlist">${sueltos.map(fila).join('')}</div>`;
+      $('#mgl', v).innerHTML = h || '<div class="sub" style="text-align:center;padding:24px 0">No encontré esa página.</div>';
+      $$('.ml', v).forEach(b => b.onclick = () => { if (b.dataset.k === 'cifras') return ctx.go('stats'); sub = b.dataset.k; drawMore(ctx); v.scrollTop = 0; });
+      $$('.mstar', v).forEach(b => b.onclick = () => { const f = favoritos(), k = b.dataset.s, i = f.indexOf(k); if (i >= 0) f.splice(i, 1); else f.unshift(k); try { localStorage.setItem('bv-fav', JSON.stringify(f.slice(0, 5))); } catch { } pinta(); });
+    };
+    v.innerHTML = `<div class="apphead"><div><h2>Más</h2><div class="sub">Colecciones, ajustes y herramientas</div></div></div><div class="pad"><label class="msearch">${ic('search')}<input id="mq" type="search" placeholder="Buscar una página…" aria-label="Buscar una página de Más" autocomplete="off"></label><div id="mgl"></div></div>`;
+    $('#mq', v).oninput = e => { q = e.target.value.trim(); pinta(); };
+    pinta();
     return;
   }
   const title = MENU.find(m => m[0] === sub)[1];
@@ -172,7 +199,14 @@ const PAGES = {
       <div class="card"><h3>Letra de los títulos</h3><div class="dotrow" id="d-font">${FUENTES.map(([k, n, f]) => `<button class="t" data-f="${k}" style="font-family:${f}" aria-pressed="${P.titleFont === k}">${n}</button>`).join('')}</div></div>
       <div class="card"><h3>Lámpara de la sala</h3><div class="sub">Una luz cálida sobre la estantería. En automático se enciende de noche.</div><div class="dotrow" id="d-lamp"><button class="t" data-l="auto" aria-pressed="${(P.lampara || 'auto') === 'auto'}">Automática</button><button class="t" data-l="si" aria-pressed="${P.lampara === 'si'}">Encendida</button><button class="t" data-l="no" aria-pressed="${P.lampara === 'no'}">Apagada</button></div></div>
       <div class="card"><h3>Densidad</h3><div class="dotrow" id="d-dens"><button class="t" data-d="comoda" aria-pressed="${P.dens !== 'compacta'}">Cómoda</button><button class="t" data-d="compacta" aria-pressed="${P.dens === 'compacta'}">Compacta</button></div></div>
+      <div class="card"><h3>Detalles de diseño</h3>
+        <label class="chk2" style="margin-top:10px"><input type="checkbox" id="ap-col" ${P.colorLibro !== false ? 'checked' : ''}> El color del libro tiñe la pantalla Hoy y el lector</label>
+        <label class="chk2"><input type="checkbox" id="ap-rec" ${P.rectas ? 'checked' : ''}> Esquinas más rectas</label>
+        <label class="chk2"><input type="checkbox" id="ap-cal" ${P.calma ? 'checked' : ''}> Reducir el movimiento y las animaciones</label></div>
       <div class="card"><h3>Pantalla Hoy</h3><div class="sub">Cambia el orden de las tarjetas o escóndelas.</div><div class="hoyord" id="d-hoy"></div></div>`;
+    $('#ap-col', b).onchange = e => { setPref('colorLibro', e.target.checked); redraw(); };
+    $('#ap-rec', b).onchange = e => { setPref('rectas', e.target.checked); redraw(); };
+    $('#ap-cal', b).onchange = e => { setPref('calma', e.target.checked); redraw(); };
     const grp = (id, fn) => $(id, b).addEventListener('click', e => { const x = e.target.closest('button'); if (!x) return; fn(x); redraw(); });
     grp('#d-acc', x => setPref('accent', x.dataset.c || null));
     grp('#d-wood', x => setPref('wood', x.dataset.w || null));

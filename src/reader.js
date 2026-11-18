@@ -3,6 +3,7 @@ import { S, byId, getFile, setStatus, persistBook, addPages, addTime, saveNote, 
 import { $, $$, esc, ic, toast } from './ui.js';
 import { hayAsistente, abrirTraductor, abrirAsistente, grabarNota } from './tanda5.js';
 import { ensureEpub } from './sync.js';
+import { acentoLibro } from './diseno.js';
 import { dockear } from './dock.js';
 import { nombreDispositivo, hace } from './dispositivo.js';
 import { SONIDOS, sonar, volumen, parar as pararAmb } from './ambient.js';
@@ -28,6 +29,7 @@ export async function openReader(id, cfiTarget) {
 
   const root = document.createElement('div');
   root.id = 'reader'; root.dataset.theme = prefs.theme || 'paper';
+  acentoLibro(root, b);
   root.innerHTML = `
     <div class="rbar">
       <button class="iconbtn" id="rBack" aria-label="Volver a la biblioteca">${ic('back')}</button>

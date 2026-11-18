@@ -12,7 +12,7 @@ import './style2.css';
 import { registerSW } from 'virtual:pwa-register';
 import { S, load, onChange, byId } from './state.js';
 import { P, setPref, THEMES } from './prefs.js';
-import { $, $$, ic } from './ui.js';
+import { $, $$, ic, reduce } from './ui.js';
 import { drawLib, selectBook, isWide } from './lib.js';
 import { drawHoy } from './hoy.js';
 import { openCover, openAdd } from './sheets.js';
@@ -61,16 +61,21 @@ setPaletteCtx(ctx);
 
 function shell() {
   $('#app').innerHTML = `<nav class="tabs" role="tablist" aria-label="Secciones"><div class="logo">BV<b>Biblioteca</b></div>
-    ${TABS.map(([k, n, i]) => `<button class="tab" role="tab" data-t="${k}" aria-selected="${k === S.ui.tab}">${ic(i)}<span>${n}</span></button>`).join('')}
+    ${TABS.map(([k, n, i]) => `<button class="tab" role="tab" data-t="${k}" aria-selected="${k === S.ui.tab}">${ic(i)}<span>${n}</span></button>${k === 'lib' ? `<button class="tabplus" id="tplus" aria-label="Agregar">${ic('plus')}</button>` : ''}`).join('')}
     <div class="grow"></div><button class="syncchip" id="schip">${ic('cloud')}<span id="slab">${syncLabel()}</span></button></nav>
     <div class="screen">${TABS.map(([k]) => `<section class="view" id="v-${k}" ${k === S.ui.tab ? '' : 'hidden'}></section>`).join('')}</div>
     <aside id="detail" aria-label="Ficha del libro"></aside>`;
   $$('.tab').forEach(b => b.onclick = () => go(b.dataset.t));
+  $('#tplus').onclick = () => import('./tanda5.js').then(m => m.menuMas(ctx));
   $('#schip').onclick = () => go('more');
 }
 onSyncStatus(() => { const l = $('#slab'); if (l) l.textContent = syncLabel(); });
 
 export function go(t) {
+  if (!reduce && S.ui.tab !== t && document.startViewTransition && document.querySelector('.view:not([hidden])')) { try { document.startViewTransition(() => go0(t)); return; } catch { } }
+  go0(t);
+}
+function go0(t) {
   S.ui.tab = t;
   $$('.view').forEach(v => v.hidden = v.id !== 'v-' + t);
   $$('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));

@@ -640,3 +640,53 @@ b.bio{font-weight:800}
 @keyframes rec5p{0%,100%{box-shadow:0 0 0 0 rgba(224,122,112,.6)}50%{box-shadow:0 0 0 14px rgba(224,122,112,0)}}
 .wd5{border-bottom:1px dotted var(--accent);cursor:pointer}
 @media (prefers-reduced-motion:reduce){.rec5.on{animation:none}}
+
+/* ---- Tanda 6: diseño ---- */
+.fbtn{position:relative;flex:none;gap:5px;padding:6px 11px}.fbtn .i{width:15px;height:15px}
+.fdot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block}
+.sheet .lbl{font-size:12px;color:var(--muted);font-weight:600}
+.msearch{display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);margin-bottom:6px}
+.msearch .i{width:18px;height:18px;color:var(--muted);flex:none}.msearch input{flex:1;min-width:0;border:0;background:none;padding:12px 0;font-size:15px;color:var(--ink);outline:0}
+.grp5{font:700 11.5px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--g,var(--accent));margin:18px 2px 8px}
+.mlw{position:relative}.mlw .ml{padding-right:52px}
+.mlist[style*="--g"] .ml .mi{background:color-mix(in srgb,var(--g) 20%,transparent);color:var(--g)}
+.mstar{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;display:grid;place-items:center;color:var(--muted);border-radius:12px}
+.mstar .i{width:18px;height:18px}.mstar[aria-pressed="true"]{color:#E4B861}.mstar[aria-pressed="true"] .i{fill:currentColor}
+.sheet{border-radius:28px 28px 0 0}
+.sheet .grab{position:absolute;left:0;right:0;top:0;height:26px;cursor:grab;touch-action:none;z-index:2}
+.sheet .grab::after{content:"";position:absolute;left:50%;top:9px;width:40px;height:4px;border-radius:4px;background:var(--line);transform:translateX(-50%)}
+.sheet>.row:last-child:has(>.btn){position:sticky;bottom:0;background:var(--surface);margin-top:14px;padding-top:10px;box-shadow:0 -12px 14px -10px var(--surface);z-index:1}
+html[data-dens="compacta"] .sheet .grab{height:20px}
+.metac,.semc{display:flex;align-items:center;gap:16px}
+.ring5{--p:0;width:78px;height:78px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p)*1%),var(--line) 0);display:grid;place-items:center;flex:none;border:0;cursor:pointer;transition:background .4s}
+.ring5 i{display:grid;place-items:center;width:62px;height:62px;border-radius:50%;background:var(--surface);font:400 24px var(--f-display);font-style:normal;color:var(--ink)}
+.wdots{display:flex;gap:7px;flex:none}.wdots span{display:grid;gap:4px;justify-items:center;font-size:10px;color:var(--muted)}
+.wdots i{width:14px;height:14px;border-radius:50%;background:var(--line)}.wdots .on i{background:var(--accent)}.wdots .today i{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
+.linkb{display:block;margin-top:8px;font-size:12.5px;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+.sessc[hidden]{display:none}
+
+/* barra inferior (teléfono): píldora activa y botón central */
+.tabplus{display:none}
+@media (max-width:639px){
+  .tabs{grid-template-columns:1fr 1fr 74px 1fr 1fr;align-items:end}
+  .tab[data-t="stats"]{display:none}
+  .tab svg{width:44px;height:28px;padding:3px 11px;border-radius:99px;transition:background .25s}
+  .tab[aria-selected="true"] svg{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+  .tabplus{display:grid;place-items:center;width:52px;height:52px;border-radius:18px;background:var(--accent);color:var(--accent-ink);margin:-18px auto 6px;box-shadow:0 10px 24px -6px color-mix(in srgb,var(--accent) 65%,transparent);z-index:2}
+  .tabplus svg{width:24px;height:24px;stroke-width:2.4}
+  .tabplus:active{transform:scale(.94)}
+}
+
+/* ---- Temas nuevos: Negro OLED y Papel ---- */
+html[data-theme="negro"]{--bg:#000;--surface:#000;--surface2:#0E1214;--ink:#E6ECE9;--muted:#8A9894;--line:#1D2528;--accent:#62B7AB;--accent-ink:#0B1613;--ok:#5DBB86;--warn:#E0B24A;--bad:#E07A70;--idle:#7a8582;--paper:#E7E1D2;--r-bg:#000;--r-chip:rgba(255,255,255,.07);--r-card:rgba(255,255,255,.05);color-scheme:dark}
+html[data-theme="papel"]{--bg:#EADFC6;--surface:#F4EAD3;--surface2:#E9DCBE;--ink:#3B2D1B;--muted:#7A6748;--line:#D2BF9C;--accent:#8A4B25;--accent-ink:#fff;--ok:#4B7A3A;--warn:#9A6B14;--bad:#A9433B;--idle:#8a7c62;--paper:#F1E5CE;
+  --r-bg:#EADFC6;--r-ink:#3B2D1B;--r-muted:#7A6748;--r-chip:rgba(80,50,10,.07);--r-line:rgba(80,50,10,.18);--r-card:rgba(255,255,255,.5);--r-accent:#8A4B25;--r-accent-ink:#fff;--r-wood1:#C79A62;--r-wood2:#A97C45;--r-glow:rgba(255,255,255,.6);--r-head:#3B2D1B;color-scheme:light}
+/* ---- Esquinas rectas y movimiento reducido (Apariencia) ---- */
+html[data-rect="si"] .card,html[data-rect="si"] .ml,html[data-rect="si"] .btn,html[data-rect="si"] .iconbtn,html[data-rect="si"] .chip,html[data-rect="si"] input,html[data-rect="si"] select,html[data-rect="si"] textarea,html[data-rect="si"] .banner,html[data-rect="si"] .gdef,html[data-rect="si"] .vn5,html[data-rect="si"] .quote5{border-radius:8px}
+html[data-rect="si"] .sheet{border-radius:14px 14px 0 0}html[data-rect="si"] .tabplus{border-radius:12px}
+html[data-calma="si"] *,html[data-calma="si"] *::before,html[data-calma="si"] *::after{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important;scroll-behavior:auto!important}
+/* ---- Esqueletos de carga ---- */
+.skel{display:grid;gap:10px}.skel i{display:block;height:54px;border-radius:14px;background:linear-gradient(100deg,var(--surface2) 30%,color-mix(in srgb,var(--surface2) 60%,var(--ink) 8%) 50%,var(--surface2) 70%);background-size:220% 100%;animation:skel 1.3s linear infinite}
+@keyframes skel{from{background-position:120% 0}to{background-position:-100% 0}}
+
+::view-transition-old(root),::view-transition-new(root){animation-duration:.18s}

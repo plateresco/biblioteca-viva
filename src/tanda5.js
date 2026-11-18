@@ -42,8 +42,9 @@ export const ERAS = [[-9999, 500, 'Antigüedad'], [500, 1500, 'Edad Media'], [15
 export const epocaDe = y => (ERAS.find(e => y >= e[0] && y < e[1]) || ERAS[5])[2];
 
 /* ================================================================== Qué hay de nuevo */
-export const BUILD = 20;
+export const BUILD = 21;
 export const CAMBIOS = [
+  { v: 21, t: 'Diseño nuevo', l: [['NUEVO', 'Biblioteca con una sola fila de filtros y un botón «Filtros».'], ['NUEVO', 'Más ordenado en grupos, con buscador y favoritos.'], ['NUEVO', 'Hoy con anillo de meta, semana en puntos y sesión integrada.'], ['NUEVO', 'Barra inferior con píldora activa y botón «＋» para agregar.'], ['NUEVO', 'El color de cada libro tiñe Hoy y el lector.'], ['NUEVO', 'Temas Negro OLED, Papel y por horario; esquinas rectas y menos movimiento en Apariencia.'], ['MEJOR', 'Las hojas se cierran arrastrando desde el asa y su botón queda fijo abajo.']] },
   { v: 20, t: 'Esta versión', l: [['NUEVO', 'Escanear una estantería con la cámara y agregar los libros que reconoce.'], ['NUEVO', 'Completar género, año y páginas desde Open Library, y una línea de tiempo por época.'], ['NUEVO', 'Traducir un párrafo o una palabra, con descarga del idioma para usar sin conexión.'], ['NUEVO', 'Notas de voz por libro, dictado a texto y cómo te sentiste en cada sesión de foco.'], ['NUEVO', 'Tus frases como fondo de pantalla, también diario.'], ['NUEVO', 'Compartir listas, planes de club y la app con códigos QR.'], ['NUEVO', 'Asistente opcional para explicar, resumir y hacer preguntas (con tu clave gratuita de Gemini).'], ['NUEVO', 'Catálogos OPDS propios, como Calibre en tu casa.'], ['NUEVO', 'Primeros pasos y esta hoja de novedades.']] },
   { v: 19, t: 'Antes', l: [['NUEVO', 'Buscar en el texto de todos tus libros, sesiones de foco, plan de lectura y perfiles.'], ['NUEVO', 'Voz neuronal sin conexión y lectura asistida.'], ['MEJOR', 'La estantería dibuja más rápido con cientos de libros.']] },
 ];
@@ -51,10 +52,10 @@ export function avisarNovedades() {
   const vista = LS('bv-novedades');
   if (vista === null) { LS('bv-novedades', String(BUILD)); return; }       // instalación nueva: no hay nada que contar
   if (+vista >= BUILD) return;
-  LS('bv-novedades', String(BUILD)); verNovedades(true);
+  LS('bv-novedades', String(BUILD)); verNovedades(+vista);
 }
-export function verNovedades(soloNuevo = false) {
-  const lista = soloNuevo ? CAMBIOS.filter(c => c.v === BUILD) : CAMBIOS;
+export function verNovedades(desde = 0) {
+  const lista = desde ? CAMBIOS.filter(c => c.v > desde) : CAMBIOS;
   openSheet(`<h3>Qué hay de nuevo</h3>${lista.map(c => `<div class="sub" style="margin-top:12px"><b>${esc(c.t)}</b></div><div class="nov5">${c.l.map(([k, x]) => `<div><i>${k}</i><span>${esc(x)}</span></div>`).join('')}</div>`).join('')}<div class="row" style="margin-top:16px"><button class="btn" data-x>Entendido</button></div>`);
 }
 
@@ -457,7 +458,7 @@ function navegarOpds(cat) {
   const pila = [];
   const o = openSheet(`<h3>${esc(cat.n)}</h3><div class="row" style="gap:8px;margin:10px 0"><button class="btn ghost" id="ok1" hidden>Atrás</button></div><div id="ol" style="display:grid;gap:8px;max-height:56vh;overflow:auto"></div>`);
   const carga = async (u, anexa = false) => {
-    const l = $('#ol', o); if (!anexa) l.innerHTML = '<div class="small">Cargando…</div>';
+    const l = $('#ol', o); if (!anexa) l.innerHTML = '<div class="skel"><i></i><i></i><i></i></div>';
     try {
       const f = await traerFeed(u); if (!anexa) l.innerHTML = ''; else $('#omas', l)?.remove();
       f.entries.forEach(e => {
@@ -509,4 +510,19 @@ function revisarLomos(texto) {
     };
     pinta();
   };
+}
+
+/* ---------- botón central «＋» de la barra inferior ---------- */
+export function escanearEstanteria() {
+  if (!A?.escanearPagina) return toast('Esto funciona en la app de Android.');
+  window.__ocrTexto = texto => revisarLomos(texto); window.__ocrError = m => toast(m || 'No pude leer la foto.'); A.escanearPagina();
+}
+export function menuMas(ctx) {
+  const op = [['libro', 'Agregar un libro', 'EPUB, PDF, audio o a mano'], ['isbn', 'Escanear un ISBN', 'Un libro de papel con su código de barras'], ...(A?.escanearPagina ? [['estante', 'Fotografiar una estantería', 'Agrega varios libros de una vez'], ['pagina', 'Fotografiar una página', 'Guárdala como frase']] : []), ['importar', 'Importar una lista o archivos', 'CSV, Kindle y más']];
+  const o = openSheet(`<h3>Agregar</h3><div class="mlist" style="margin-top:12px">${op.map(([k, n, d]) => `<button class="ml" data-q="${k}"><span class="mt"><b>${n}</b><small>${d}</small></span></button>`).join('')}</div>`);
+  $$('[data-q]', o).forEach(b => b.onclick = () => {
+    const k = b.dataset.q; closeSheet();
+    if (k === 'libro') ctx.add(); else if (k === 'isbn') ctx.add('isbn'); else if (k === 'estante') escanearEstanteria();
+    else if (k === 'pagina') import('./frases.js').then(m => m.escanearPagina()); else import('./more.js').then(m => { m.openMore('importar'); ctx.go('more'); });
+  });
 }

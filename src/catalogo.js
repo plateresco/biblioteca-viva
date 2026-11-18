@@ -39,7 +39,7 @@ export function abrirCatalogo() {
     <div class="row" id="ci" style="gap:6px;margin:10px 0">${[['es', 'Español'], ['en', 'Inglés'], ['todos', 'Todos']].map(([k, n]) => `<button class="chip" data-i="${k}" aria-pressed="${k === idioma}">${n}</button>`).join('')}</div>
     <div id="cl" style="display:grid;gap:8px;max-height:52vh;overflow:auto"></div>`);
   const lista = async () => {
-    const mi = ++corre, l = $('#cl', o); l.innerHTML = '<div class="small">Buscando…</div>';
+    const mi = ++corre, l = $('#cl', o); l.innerHTML = '<div class="skel"><i></i><i></i><i></i></div>';
     try {
       const r = await buscar($('#cq', o).value, idioma); if (mi !== corre) return;
       l.innerHTML = r.length ? r.map(x => `<div class="cat2"><div style="min-width:0;flex:1"><b>${esc(x.t)}</b><div class="small">${esc(x.a)}</div></div><button class="btn ${tengo(x) ? 'ghost' : ''}" data-g="${x.id}" data-t="${esc(x.t)}">${tengo(x) ? 'En tu estante' : 'Agregar'}</button></div>`).join('') : '<div class="small">No encontré nada. Prueba con otra palabra o con el idioma «Todos».</div>';

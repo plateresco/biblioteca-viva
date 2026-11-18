@@ -1,6 +1,6 @@
 import { S, ST, byId, coverUrl, addPages, addTime, saveBook, setStatus, today, MES } from './state.js';
 import { P, setPref } from './prefs.js';
-import { $, $$, esc, ic, toast, reduce, ilustVacia } from './ui.js';
+import { $, $$, esc, ic, toast, reduce, ilustVacia, openSheet, closeSheet } from './ui.js';
 import { pagesToday, streak, weekDots, leftText, pace, minutesToday, fmtDur, lastReadOf, daysSince } from './metrics.js';
 import { reminderDue } from './reminder.js';
 import { sugerencias, FILTROS } from './sugerir.js';
@@ -9,9 +9,10 @@ import { planes, calculo } from './plan.js';
 import { unAnioAtras } from './recuerdos.js';
 import { abrirFoco, enCurso, sesiones } from './foco.js';
 import { RETOS, retosActivos, cfgReto } from './retos.js';
+import { acentoLibro } from './diseno.js';
 
 // Sesión de lectura manual (para libros de papel o audiolibros; con EPUB el lector mide el tiempo solo)
-const sess = { running: false, sec: 0, pages: 0, bookId: null, iv: null };
+const sess = { running: false, sec: 0, pages: 0, bookId: null, iv: null, show: false };
 const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 
 export function currentBook() {
@@ -52,11 +53,11 @@ export function drawHoy(ctx) {
    <div class="card hc cont herob">${cur ? `<div class="hero3"><div class="cv3"><span class="rcov big" style="--c1:${cur.c1 || '#555'};${cu ? `--art:url('${cu}')` : ''}">${cu ? '' : `<i>${esc(cur.t)}</i>`}</span></div>
      <div class="hinfo"><h3>Seguir leyendo</h3><b class="ht">${esc(cur.t)}</b><span class="hsub">${esc(cur.a)}</span>
      <div class="pbar"><i style="width:${Math.round((cur.r || 0) / cur.p * 100)}%"></i></div><span class="hsub">${cur.r ? `Pág. ${cur.r} de ${cur.p} · ` : ''}${esc(leftText(cur))}</span>
-     <button class="go" id="goCur">${cur.hasFile ? 'Continuar' : 'Ficha'}</button></div></div>` : `<h3>Seguir leyendo</h3><div class="sub">No tienes un libro en curso. Elige uno de tu estantería.</div>`}</div>
-   <div class="card hc half"><h3>Meta de hoy</h3><div class="metaN">${done}<small> / <input class="goalin" id="gd" type="number" min="1" value="${goal}" aria-label="Meta diaria de páginas"> págs.</small></div>
-     <div class="pbar"><i style="width:${Math.min(100, Math.round(done / goal * 100))}%"></i></div><div class="sub" style="margin-top:8px">${done >= goal ? '¡Meta cumplida hoy!' : `Faltan ${goal - done}.`}${minutesToday() ? ` Hoy: ${fmtDur(minutesToday())}.` : ''}</div></div>
-   <div class="card hc half"><h3>Esta semana</h3><div class="wbars">${dots.map(d => `<span><i class="${d.on ? 'on' : ''} ${d.today ? 'today' : ''}" style="height:${d.on ? Math.max(10, Math.min(40, Math.round((d.pages || 0) / goal * 40))) : 6}px"></i>${d.l}</span>`).join('')}</div><div class="sub" style="margin-top:8px">Racha: ${st} ${st === 1 ? 'día' : 'días'}</div></div>
-   <div class="card hc sessc"><h3>Sesión de lectura</h3>
+     <button class="go" id="goCur">${cur.hasFile ? '▶ Leer ahora' : (sess.running ? 'Sesión en curso' : '▶ Empezar sesión')}</button>${cur.hasFile ? '<button class="linkb" id="sman">Anotar lectura de papel</button>' : ''}</div></div>` : `<h3>Seguir leyendo</h3><div class="sub">No tienes un libro en curso. Elige uno de tu estantería.</div>`}</div>
+   <div class="card hc metac"><button class="ring5" id="gdb" style="--p:${Math.min(100, Math.round(done / goal * 100))}" aria-label="Meta de hoy: ${done} de ${goal} páginas. Tocar para cambiar la meta"><i>${done}</i></button>
+     <div style="min-width:0;flex:1"><h3>Meta de hoy</h3><div class="sub">${done} de ${goal} págs.</div><div class="sub" style="margin-top:2px">${done >= goal ? '¡Meta cumplida hoy!' : `Faltan ${goal - done}.`}${minutesToday() ? ` Hoy: ${fmtDur(minutesToday())}.` : ''}</div></div></div>
+   <div class="card hc semc"><div style="min-width:0;flex:1"><h3>Esta semana</h3><div class="sub">Racha: ${st} ${st === 1 ? 'día' : 'días'}</div></div><div class="wdots">${dots.map(d => `<span class="${d.on ? 'on' : ''} ${d.today ? 'today' : ''}"><i></i>${d.l}</span>`).join('')}</div></div>
+   <div class="card hc sessc" ${(cur && cur.hasFile && !sess.running && !sess.sec && !sess.pages && !sess.show) ? 'hidden' : ''}><h3>Sesión de lectura</h3>
      <select id="sbk" aria-label="Libro de la sesión">${sessBooks.map(b => `<option value="${b.id}" ${b.id === sess.bookId ? 'selected' : ''}>${esc(b.t)}</option>`).join('') || '<option value="">Sin libros</option>'}</select>
      <div class="timer" id="tm">${fmt(sess.sec)}</div>
      <div class="row2"><button class="btn" id="tmGo">${sess.running ? 'Pausar' : (sess.sec ? 'Seguir' : 'Empezar')}</button><button class="btn ghost" id="tmEnd" ${sess.sec || sess.pages ? '' : 'disabled'}>Terminar</button></div>
@@ -72,14 +73,26 @@ export function drawHoy(ctx) {
    ${q ? `<div class="card hc quotec"><h3>Frase de tus libros</h3><q>“${esc(q.text)}”</q><div class="sub">${esc(q.title)}</div></div>` : ''}
   </div>`}</div>`;
 
+  acentoLibro(v, cur);
   $('#hsr', v).onclick = () => import('./palette.js').then(m => m.openPalette());
   $$('.stp', v).forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'add') ctx.add(); else if (a === 'isbn') ctx.add('isbn'); else import('./more.js').then(m => { m.openMore('importar'); ctx.go('more'); }); });
   $('#fo', v)?.addEventListener('click', abrirFoco);
   pintarSig(v, ctx, sugs);
   ordenarHoy(v);
-  $('#goCur', v)?.addEventListener('click', () => cur.hasFile ? ctx.openReader(cur.id) : ctx.openSheet(cur.id));
+  const alSesion = () => setTimeout(() => $('.sessc', $('#v-hoy'))?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }), 80);
+  $('#goCur', v)?.addEventListener('click', () => {
+    if (cur.hasFile) return ctx.openReader(cur.id);
+    sess.bookId = cur.id;
+    if (!sess.running) { sess.running = true; clearInterval(sess.iv); sess.iv = setInterval(() => { sess.sec++; const el = $('#tm'); if (el) el.textContent = fmt(sess.sec); }, 1000); }
+    drawHoy(ctx); alSesion();
+  });
+  $('.cv3', v)?.addEventListener('click', () => ctx.openSheet(cur.id));
+  $('#sman', v)?.addEventListener('click', () => { sess.show = true; drawHoy(ctx); alSesion(); });
   $$('[data-r]', v).forEach(b => b.onclick = () => { const x = byId(+b.dataset.r); x.hasFile ? ctx.openReader(x.id) : ctx.openSheet(x.id); });
-  $('#gd', v)?.addEventListener('change', e => { setPref('goalDay', Math.max(1, +e.target.value || 20)); drawHoy(ctx); });
+  $('#gdb', v)?.addEventListener('click', () => {
+    const o = openSheet(`<h3>Meta diaria</h3><div class="sub">¿Cuántas páginas quieres leer cada día?</div><label style="display:grid;gap:4px;margin-top:12px;font-size:13px">Páginas por día<input id="gdi" type="number" min="1" value="${goal}" inputmode="numeric"></label><div class="row" style="margin-top:16px"><button class="btn" id="gdg">Guardar</button><button class="btn ghost" data-x>Cancelar</button></div>`);
+    $('#gdg', o).onclick = () => { setPref('goalDay', Math.max(1, +$('#gdi', o).value || 20)); closeSheet(); drawHoy(ctx); };
+  });
   const fg = $('#rfg', v); if (fg) requestAnimationFrame(() => requestAnimationFrame(() => { fg.style.strokeDashoffset = C * (1 - Math.min(1, done / goal)); }));
 
   // sesión
