@@ -6,28 +6,44 @@ import { abrirExportar } from './exportar.js';
 import { abrirRepaso, pendientes } from './repaso.js';
 
 export const HL = { amarillo: 'rgba(242,201,76,.6)', verde: 'rgba(123,196,127,.55)', azul: 'rgba(127,178,240,.55)', rosa: 'rgba(242,154,184,.6)' };
-let tpl = 'papel', qtext = '', qbook = '';
+let tpl = 'papel', qtext = '', qbook = '', qtag = '';
+export const setEtiqueta = t => { qtag = t || ''; };
+const STOP = new Set('que los las una unos unas del con por para como pero más mas sus este esta esto estos estas ese esa eso fue era ser son han hay muy sin sobre entre cuando donde quien todo toda todos todas cada otro otra tiene tenía había habrá había hasta desde porque aunque también tambien cuyo aquel aquella'.split(' '));
+export const etiquetasDe = n => n.tags || [];
+export const todasEtiquetas = () => { const m = new Map(); for (const n of S.notes) for (const t of etiquetasDe(n)) m.set(t, (m.get(t) || 0) + 1); return [...m.entries()].sort((a, z) => z[1] - a[1] || a[0].localeCompare(z[0])); };
+const limpiaTag = s => String(s).toLowerCase().normalize('NFC').replace(/[^\p{L}\p{N}\- ]/gu, '').trim().replace(/\s+/g, '-').slice(0, 24);
+/** Palabras que más se repiten en la frase (y en el resto de tus frases con etiquetas), como ideas de etiqueta. */
+export function sugeridas(n) {
+  const ya = new Set(etiquetasDe(n)), conocidas = todasEtiquetas().map(x => x[0]), txt = ' ' + (n.text || '').toLowerCase() + ' ';
+  const delTexto = [...new Set((n.text || '').toLowerCase().match(/\p{L}{5,}/gu) || [])].filter(w => !STOP.has(w));
+  const out = []; for (const t of conocidas) if (!ya.has(t) && txt.includes(t.replace(/-/g, ' '))) out.push(t);
+  for (const w of delTexto.sort((a, z) => z.length - a.length)) { if (out.length >= 6) break; if (!ya.has(w) && !out.includes(w)) out.push(w); }
+  return out.slice(0, 6);
+}
 
 export function drawFrases(ctx) {
   const v = $('#v-fr'), all = S.notes.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   const books = [...new Set(all.map(n => n.bookId))].map(id => byId(id)).filter(Boolean);
-  const f = all.filter(n => (!qtext || n.text.toLowerCase().includes(qtext.toLowerCase())) && (!qbook || String(n.bookId) === qbook));
+  const f = all.filter(n => (!qtext || n.text.toLowerCase().includes(qtext.toLowerCase()) || etiquetasDe(n).some(t => t.includes(qtext.toLowerCase()))) && (!qbook || String(n.bookId) === qbook) && (!qtag || etiquetasDe(n).includes(qtag)));
+  const tags = todasEtiquetas();
   const dayQ = all.length ? all[S.ui.qi % all.length] : null;
   v.innerHTML = `<div class="apphead"><div><h2>Mis frases</h2><div class="sub">${all.length} ${all.length === 1 ? 'frase guardada' : 'frases guardadas'}</div></div><div class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">${all.length ? `<button class="btn ghost" id="exq">Exportar</button>` : ''}${pendientes().length >= 1 && all.length >= 3 ? `<button class="btn ghost" id="rpq">Repasar</button>` : ''}${window.AndroidApp?.escanearPagina ? `<button class="btn ghost" id="scp">${ic('camera')}Escanear</button>` : ''}<button class="btn" id="nq">${ic('plus')}Nueva</button></div></div><div class="pad">
    ${all.length ? `<div class="fbar2"><div class="seg2" id="tplseg">${[['papel', 'Papel'], ['noche', 'Noche'], ['libro', 'Color del libro']].map(([k, n]) => `<button data-t="${k}" aria-pressed="${tpl === k}">${n}</button>`).join('')}</div>
      <input id="qs" type="search" value="${esc(qtext)}" placeholder="Buscar en tus frases" aria-label="Buscar en tus frases">
      ${books.length > 1 ? `<select id="qb" aria-label="Filtrar por libro"><option value="">Todos los libros</option>${books.map(b => `<option value="${b.id}" ${String(b.id) === qbook ? 'selected' : ''}>${esc(b.t)}</option>`).join('')}</select>` : ''}</div>
+   ${tags.length ? `<div class="row" id="qtg" style="gap:6px;padding:0 18px 10px;overflow-x:auto;flex-wrap:nowrap"><button class="chip" data-tg="" aria-pressed="${!qtag}">Todas</button>${tags.map(([t, c]) => `<button class="chip" data-tg="${esc(t)}" aria-pressed="${qtag === t}">#${esc(t)} <em>${c}</em></button>`).join('')}</div>` : ''}
    <div class="masonry" id="quotes">${f.map(n => card(n)).join('') || `<div class="note">Ninguna frase coincide con tu búsqueda.</div>`}</div>`
    : `<div class="card onb">${ilustVacia()}<h3>Aún no tienes frases</h3><div class="sub">Mientras lees un EPUB, selecciona un texto y elige un color: queda subrayado y aparece aquí. También puedes escribir frases de libros de papel con «Nueva».</div></div>`}
   </div>`;
   function card(n) {
     const b = byId(n.bookId), cu = b && coverUrl(b), c = b?.c1 || '#555';
-    return `<div class="q ${tpl}" data-id="${n.id}" style="--bc:${c};${cu && tpl === 'libro' ? `--art:url('${cu}')` : ''}"><span class="hdot" style="background:${HL[n.color] || HL.amarillo}"></span><q>“${esc(n.text)}”</q>${n.comment ? `<div class="qnote">${esc(n.comment)}</div>` : ''}<div class="src"><span>${esc(n.title || '')}</span>
+    return `<div class="q ${tpl}" data-id="${n.id}" style="--bc:${c};${cu && tpl === 'libro' ? `--art:url('${cu}')` : ''}"><span class="hdot" style="background:${HL[n.color] || HL.amarillo}"></span><q>“${esc(n.text)}”</q>${n.comment ? `<div class="qnote">${esc(n.comment)}</div>` : ''}${etiquetasDe(n).length ? `<div class="qtags">${etiquetasDe(n).map(t => `<span>#${esc(t)}</span>`).join('')}</div>` : ''}<div class="src"><span>${esc(n.title || '')}</span>
       <span class="qa"><button data-nt="${n.id}" aria-label="${n.comment ? 'Editar nota' : 'Agregar nota'}">${ic('edit')}Nota</button><button data-sh="${n.id}" aria-label="Compartir como imagen">${ic('image')}Compartir</button>${b?.hasFile && (n.cfi || n.pdfPag) ? `<button data-go="${n.id}" aria-label="Ir al pasaje">${ic('arrow')}</button>` : ''}<button data-del="${n.id}" aria-label="Borrar">${ic('trash')}</button></span></div></div>`;
   }
   $('#nq', v).onclick = () => newQuote(ctx);
   $('#exq', v)?.addEventListener('click', () => abrirExportar(qbook ? +qbook : null));
-  $('#rpq', v)?.addEventListener('click', () => abrirRepaso());
+  $('#rpq', v)?.addEventListener('click', () => abrirRepaso(qtag));
+  $$('#qtg [data-tg]', v).forEach(b => b.onclick = () => { qtag = b.dataset.tg; drawFrases(ctx); });
   $('#scp', v)?.addEventListener('click', () => escanearPagina());
   $$('#tplseg button', v).forEach(b => b.onclick = () => { tpl = b.dataset.t; drawFrases(ctx); });
   $('#qs', v)?.addEventListener('input', e => { qtext = e.target.value; const pos = e.target.selectionStart; drawFrases(ctx); const i = $('#qs'); i.focus(); i.setSelectionRange(pos, pos); });
@@ -79,8 +95,12 @@ export function editarNota(n, alGuardar) {
   if (!n) return;
   const o = openSheet(`<h3>Tu nota</h3><div class="sub" style="font-style:italic;margin-bottom:8px">«${esc(n.text.slice(0, 160))}${n.text.length > 160 ? '…' : ''}»</div>
     <textarea id="ntx" rows="5" maxlength="800" placeholder="Lo que pensaste al leer esto" style="width:100%;border-radius:12px;padding:10px;background:var(--surface2);color:var(--ink);border:1px solid var(--line);font:15px/1.5 var(--f-body)">${esc(n.comment || '')}</textarea>
+    <label style="display:grid;gap:4px;margin-top:12px;font-size:13px">Etiquetas <span class="small">separadas por coma</span><input id="ntg" value="${esc(etiquetasDe(n).join(', '))}" placeholder="miedo, amistad, trabajo" autocomplete="off"></label>
+    <div class="row" id="nts2" style="gap:6px;margin-top:8px">${sugeridas(n).map(t => `<button class="chip" data-sg="${esc(t)}">+ ${esc(t)}</button>`).join('')}</div>
     <div class="row" style="margin-top:12px"><button class="btn" id="nts">Guardar nota</button>${n.comment ? '<button class="btn ghost" id="ntd">Quitar nota</button>' : ''}</div>`);
-  const guarda = async t => { n.comment = t; n.upd = Date.now(); await saveNote(n); closeSheet(); toast(t ? 'Nota guardada' : 'Nota quitada'); alGuardar && alGuardar(); };
+  const leerTags = () => [...new Set($('#ntg', o).value.split(',').map(limpiaTag).filter(Boolean))].slice(0, 8);
+  $$('#nts2 [data-sg]', o).forEach(b => b.onclick = () => { const l = leerTags(); if (!l.includes(b.dataset.sg)) l.push(b.dataset.sg); $('#ntg', o).value = l.join(', '); b.remove(); });
+  const guarda = async t => { n.tags = leerTags(); n.comment = t; n.upd = Date.now(); await saveNote(n); closeSheet(); toast(t ? 'Nota guardada' : 'Nota quitada'); alGuardar && alGuardar(); };
   $('#nts', o).onclick = () => guarda($('#ntx', o).value.trim());
   $('#ntd', o)?.addEventListener('click', () => guarda(''));
   setTimeout(() => $('#ntx', o)?.focus(), 200);

@@ -5,12 +5,12 @@ import { $, $$, esc, openSheet, toast } from './ui.js';
 const DIAS = [1, 3, 7, 14, 30];
 const mezcla = a => { const l = a.slice(); for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } return l; };
 const elegibles = () => S.notes.filter(n => byId(n.bookId) && (n.text || '').length >= 25);
-export const pendientes = () => elegibles().filter(n => !n.rv || n.rv.due <= Date.now());
+export const pendientes = (tag = '') => elegibles().filter(n => (!n.rv || n.rv.due <= Date.now()) && (!tag || (n.tags || []).includes(tag)));
 
-export function abrirRepaso() {
+export function abrirRepaso(tag = '') {
   const todas = elegibles(), libros = [...new Set(todas.map(n => n.bookId))];
   if (todas.length < 3 || libros.length < 2) return toast('Necesitas al menos 3 frases de 2 libros para repasar');
-  let cola = mezcla(pendientes()).slice(0, 10); const total = cola.length;
+  let cola = mezcla(pendientes(tag)).slice(0, 10); const total = cola.length;
   if (!cola.length) return toast('Hoy no hay frases por repasar. Vuelve mañana.');
   let hechas = 0, resp = false;
   const o = openSheet(`<h3>Repaso de frases</h3><div class="sub" id="rcola"></div><div class="rbar2"><i id="rprog"></i></div>

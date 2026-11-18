@@ -1,15 +1,30 @@
 // Cálculos compartidos a partir del registro de lectura (páginas y tiempo por día).
-import { S, today, MES } from './state.js';
+import { S, today, MES, saveMeta } from './state.js';
 
 export const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const pagesOn = date => S.log.filter(l => l.date === date).reduce((a, l) => a + (l.pages || 0), 0);
 export const pagesToday = () => pagesOn(today());
 export const readDays = () => new Set(S.log.filter(l => l.pages > 0 || l.secs > 0).map(l => l.date));
 
+/* Racha amable: los días de gracia y la pausa de vacaciones no la rompen (pero tampoco suman). */
+export const GRACIAS_MES = 2;
+export const graciasLista = () => (S.meta.gracia = S.meta.gracia || []);
+export const esGracia = f => graciasLista().includes(f);
+export const enPausa = f => { const p = S.meta.pausa; return !!p && f >= p.desde && f <= p.hasta; };
+export const graciasUsadas = (f = today()) => graciasLista().filter(x => x.slice(0, 7) === f.slice(0, 7)).length;
+export const graciasQuedan = (f = today()) => Math.max(0, GRACIAS_MES - graciasUsadas(f));
+export async function usarGracia(f) {
+  if (graciasQuedan(f) < 1 || esGracia(f)) return false;
+  graciasLista().push(f); await saveMeta(); return true;
+}
 export function streak() {
   const days = readDays(); let n = 0; const d = new Date();
   if (!days.has(today())) d.setDate(d.getDate() - 1);
-  while (days.has(iso(d))) { n++; d.setDate(d.getDate() - 1); }
+  for (let k = 0; k < 4000; k++) {
+    const f = iso(d);
+    if (days.has(f)) n++; else if (!esGracia(f) && !enPausa(f)) break;
+    d.setDate(d.getDate() - 1);
+  }
   return n;
 }
 export function bestStreak() {
@@ -20,7 +35,7 @@ export function bestStreak() {
 // Últimos 7 días, de lunes a domingo de la semana actual.
 export function weekDots() {
   const now = new Date(), wd = (now.getDay() + 6) % 7, days = readDays(), out = [];
-  for (let i = 0; i < 7; i++) { const d = new Date(now); d.setDate(now.getDate() - wd + i); out.push({ on: days.has(iso(d)), pages: pagesOn(iso(d)), today: i === wd, future: i > wd, l: 'LMMJVSD'[i] }); }
+  for (let i = 0; i < 7; i++) { const d = new Date(now); d.setDate(now.getDate() - wd + i); out.push({ on: days.has(iso(d)), f: iso(d), gr: esGracia(iso(d)) || enPausa(iso(d)), miss: i < wd && !days.has(iso(d)) && !esGracia(iso(d)) && !enPausa(iso(d)), pages: pagesOn(iso(d)), today: i === wd, future: i > wd, l: 'LMMJVSD'[i] }); }
   return out;
 }
 // Ritmo: páginas por hora, medido en las sesiones con tiempo registrado (o 30 si aún no hay datos).

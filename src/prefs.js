@@ -1,6 +1,6 @@
 // Preferencias de este dispositivo (tema, vista, metas, recordatorio, tamaño de texto).
 const KEY = 'bv-prefs';
-const DEF = { theme: 'auto', view: 'shelf', goalDay: 20, goalYear: 12, reminder: { on: false, time: '21:30' }, textScale: 100, accent: null, wood: null, spine: 'cuero', titleFont: 'young', dens: 'comoda', lampara: 'auto', hoyOrder: [], hoyHide: [], colorLibro: true, rectas: false, calma: false };
+const DEF = { theme: 'auto', view: 'shelf', goalDay: 20, goalYear: 12, reminder: { on: false, time: '21:30' }, textScale: 100, accent: null, wood: null, spine: 'cuero', titleFont: 'young', dens: 'comoda', lampara: 'auto', hoyOrder: [], hoyHide: [], colorLibro: true, metaSemana: 5, rectas: false, calma: false };
 let stored = {};
 try { stored = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { }
 export const P = { ...DEF, ...stored, reminder: { ...DEF.reminder, ...(stored.reminder || {}) } };

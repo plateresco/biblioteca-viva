@@ -27,6 +27,7 @@ import { buscarActualizacion, ofrecerInstalar, versionActual, autoActivo, fijarA
 import { imgShelf, shareImage } from './share.js';
 import { sobrantes, quitarRepetidos } from './importar.js';
 import { MENU5, PAGES5 } from './tanda5.js';
+import { MENU7, PAGES7 } from './tanda7.js';
 
 import { HOY_CARDS } from './hoy.js';
 let sub = null;
@@ -64,15 +65,16 @@ const MENU = [
   ['ayuda', 'Ayuda', () => 'Primeros pasos', 'info'],
   ...(esApp ? [['vozneuronal', 'Voz neuronal', () => 'Voces sin conexión, más naturales', 'phones']] : []),
   ...MENU5.slice(1),
+  ...MENU7,
   ['diagnostico', 'Diagnóstico', () => { try { const n = JSON.parse(localStorage.getItem('bv-errs') || '[]').length; return n ? `${n} errores registrados` : 'Sin errores registrados'; } catch { return ''; } }, 'info'],
   ...(esApp ? [['version', 'Actualizaciones', () => 'Versión ' + (versionActual()?.name || ''), 'download']] : []),
 ];
 
 const favoritos = () => { try { return JSON.parse(localStorage.getItem('bv-fav') || '[]'); } catch { return []; } };
 const GRUPOS = [
-  ['Leer', '#62B7AB', ['foco', 'plan', 'retos', 'glosario', 'personajes', 'buscar', 'traducir', 'notasvoz', 'asistente', 'vozneuronal', 'recordatorio']],
+  ['Leer', '#62B7AB', ['quehoy', 'foco', 'plan', 'racha', 'retos', 'bingo', 'glosario', 'personajes', 'buscar', 'traducir', 'notasvoz', 'asistente', 'vozneuronal', 'recordatorio']],
   ['Mi biblioteca', '#E4B861', ['colecciones', 'smart', 'deseos', 'autores', 'diario', 'importar', 'estanteria', 'catalogo', 'opds', 'datos', 'linea', 'portadas', 'repetidos', 'espacio', 'papelera']],
-  ['Datos y compartir', '#C9809A', ['cifras', 'compartir', 'webshelf', 'qr', 'fondos']],
+  ['Datos y compartir', '#C9809A', ['cifras', 'ritmo', 'temas', 'compartir', 'webshelf', 'qr', 'fondos', 'respaldo2']],
   ['Cuenta y copias', '#8FA8F0', ['sync', 'privacidad', 'perfiles']],
   ['La app', '#B48AE0', ['primeros', 'novedades', 'apariencia', 'atajos', 'ia', 'ayuda', 'diagnostico', 'version']],
 ];
@@ -109,6 +111,7 @@ export function drawMore(ctx) {
 
 const PAGES = {
   ...PAGES5,
+  ...PAGES7,
   /* ---- Colecciones y préstamos ---- */
   colecciones(b, ctx, redraw) {
     const loans = S.books.filter(x => x.loan);

@@ -1,7 +1,7 @@
 import { S, ST, byId, coverUrl, addPages, addTime, saveBook, setStatus, today, MES } from './state.js';
 import { P, setPref } from './prefs.js';
 import { $, $$, esc, ic, toast, reduce, ilustVacia, openSheet, closeSheet } from './ui.js';
-import { pagesToday, streak, weekDots, leftText, pace, minutesToday, fmtDur, lastReadOf, daysSince } from './metrics.js';
+import { pagesToday, streak, weekDots, leftText, pace, minutesToday, fmtDur, lastReadOf, daysSince, usarGracia, graciasQuedan } from './metrics.js';
 import { reminderDue } from './reminder.js';
 import { sugerencias, FILTROS } from './sugerir.js';
 import { visible } from './bloqueo.js';
@@ -21,8 +21,8 @@ export function currentBook() {
 }
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
-export const HOY_CARDS = [['cont', 'Seguir leyendo'], ['meta', 'Meta de hoy'], ['semana', 'Esta semana'], ['sesion', 'Sesión de lectura'], ['ritmo', 'Ritmo para terminar'], ['plan', 'Plan de lectura'], ['foco', 'Sesión de foco'], ['ago', 'Un año atrás'], ['retos', 'Retos'], ['sig', 'Siguiente lectura'], ['retomar', 'Retomar'], ['frase', 'Frase de tus libros']];
-const CLAVES = { 'Seguir leyendo': 'cont', 'Meta de hoy': 'meta', 'Esta semana': 'semana', 'Sesión de lectura': 'sesion', 'Ritmo para terminar': 'ritmo', 'Plan de lectura': 'plan', 'Sesión de foco': 'foco', 'Un año atrás': 'ago', 'Retos': 'retos', 'Siguiente lectura': 'sig', 'Retomar': 'retomar', 'Frase de tus libros': 'frase' };
+export const HOY_CARDS = [['cont', 'Seguir leyendo'], ['qlh', '¿Qué leo hoy?'], ['meta', 'Meta de hoy'], ['semana', 'Esta semana'], ['sesion', 'Sesión de lectura'], ['ritmo', 'Ritmo para terminar'], ['plan', 'Plan de lectura'], ['foco', 'Sesión de foco'], ['ago', 'Un año atrás'], ['retos', 'Retos'], ['sig', 'Siguiente lectura'], ['retomar', 'Retomar'], ['frase', 'Frase de tus libros']];
+const CLAVES = { 'Seguir leyendo': 'cont', '¿Qué leo hoy?': 'qlh', 'Meta de hoy': 'meta', 'Esta semana': 'semana', 'Sesión de lectura': 'sesion', 'Ritmo para terminar': 'ritmo', 'Plan de lectura': 'plan', 'Sesión de foco': 'foco', 'Un año atrás': 'ago', 'Retos': 'retos', 'Siguiente lectura': 'sig', 'Retomar': 'retomar', 'Frase de tus libros': 'frase' };
 // Orden y tarjetas escondidas elegidos en Apariencia.
 function ordenarHoy(v) {
   const cards = [...v.querySelectorAll(':scope .card.hc')]; if (!cards.length) return;
@@ -54,9 +54,10 @@ export function drawHoy(ctx) {
      <div class="hinfo"><h3>Seguir leyendo</h3><b class="ht">${esc(cur.t)}</b><span class="hsub">${esc(cur.a)}</span>
      <div class="pbar"><i style="width:${Math.round((cur.r || 0) / cur.p * 100)}%"></i></div><span class="hsub">${cur.r ? `Pág. ${cur.r} de ${cur.p} · ` : ''}${esc(leftText(cur))}</span>
      <button class="go" id="goCur">${cur.hasFile ? '▶ Leer ahora' : (sess.running ? 'Sesión en curso' : '▶ Empezar sesión')}</button>${cur.hasFile ? '<button class="linkb" id="sman">Anotar lectura de papel</button>' : ''}</div></div>` : `<h3>Seguir leyendo</h3><div class="sub">No tienes un libro en curso. Elige uno de tu estantería.</div>`}</div>
+   ${S.books.filter(b => (b.s === 'porleer' || b.s === 'leyendo') && visible(b)).length >= 3 ? `<div class="card hc qlhc"><div style="min-width:0;flex:1"><h3>¿Qué leo hoy?</h3><div class="sub">Dos preguntas y te propongo un libro.</div></div><button class="btn" id="qlh">Elegir</button></div>` : ''}
    <div class="card hc metac"><button class="ring5" id="gdb" style="--p:${Math.min(100, Math.round(done / goal * 100))}" aria-label="Meta de hoy: ${done} de ${goal} páginas. Tocar para cambiar la meta"><i>${done}</i></button>
      <div style="min-width:0;flex:1"><h3>Meta de hoy</h3><div class="sub">${done} de ${goal} págs.</div><div class="sub" style="margin-top:2px">${done >= goal ? '¡Meta cumplida hoy!' : `Faltan ${goal - done}.`}${minutesToday() ? ` Hoy: ${fmtDur(minutesToday())}.` : ''}</div></div></div>
-   <div class="card hc semc"><div style="min-width:0;flex:1"><h3>Esta semana</h3><div class="sub">Racha: ${st} ${st === 1 ? 'día' : 'días'}</div></div><div class="wdots">${dots.map(d => `<span class="${d.on ? 'on' : ''} ${d.today ? 'today' : ''}"><i></i>${d.l}</span>`).join('')}</div></div>
+   <div class="card hc semc"><div style="min-width:0;flex:1"><h3>Esta semana</h3><div class="sub">${dots.filter(d => d.on || d.gr).length} de ${P.metaSemana || 5} días · racha de ${st} ${st === 1 ? 'día' : 'días'}</div>${dots.some(d => d.miss) && graciasQuedan() > 0 ? '<div class="sub" style="margin-top:2px">Toca un día vacío para usar una gracia.</div>' : ''}</div><div class="wdots">${dots.map(d => `<span class="${d.on ? 'on' : ''} ${d.gr ? 'gr' : ''} ${d.miss ? 'miss' : ''} ${d.today ? 'today' : ''}" ${d.miss && graciasQuedan() > 0 ? `data-gr="${d.f}" role="button" tabindex="0" aria-label="Usar un día de gracia"` : ''}><i></i>${d.l}</span>`).join('')}</div></div>
    <div class="card hc sessc" ${(cur && cur.hasFile && !sess.running && !sess.sec && !sess.pages && !sess.show) ? 'hidden' : ''}><h3>Sesión de lectura</h3>
      <select id="sbk" aria-label="Libro de la sesión">${sessBooks.map(b => `<option value="${b.id}" ${b.id === sess.bookId ? 'selected' : ''}>${esc(b.t)}</option>`).join('') || '<option value="">Sin libros</option>'}</select>
      <div class="timer" id="tm">${fmt(sess.sec)}</div>
@@ -89,6 +90,8 @@ export function drawHoy(ctx) {
   $('.cv3', v)?.addEventListener('click', () => ctx.openSheet(cur.id));
   $('#sman', v)?.addEventListener('click', () => { sess.show = true; drawHoy(ctx); alSesion(); });
   $$('[data-r]', v).forEach(b => b.onclick = () => { const x = byId(+b.dataset.r); x.hasFile ? ctx.openReader(x.id) : ctx.openSheet(x.id); });
+  $('#qlh', v)?.addEventListener('click', () => import('./tanda7.js').then(m => m.queLeoHoy(ctx)));
+  $$('[data-gr]', v).forEach(x => x.onclick = async () => { if (await usarGracia(x.dataset.gr)) { toast('Usaste un día de gracia: tu racha sigue'); drawHoy(ctx); } });
   $('#gdb', v)?.addEventListener('click', () => {
     const o = openSheet(`<h3>Meta diaria</h3><div class="sub">¿Cuántas páginas quieres leer cada día?</div><label style="display:grid;gap:4px;margin-top:12px;font-size:13px">Páginas por día<input id="gdi" type="number" min="1" value="${goal}" inputmode="numeric"></label><div class="row" style="margin-top:16px"><button class="btn" id="gdg">Guardar</button><button class="btn ghost" data-x>Cancelar</button></div>`);
     $('#gdg', o).onclick = () => { setPref('goalDay', Math.max(1, +$('#gdi', o).value || 20)); closeSheet(); drawHoy(ctx); };

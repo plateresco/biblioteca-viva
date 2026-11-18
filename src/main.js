@@ -72,7 +72,7 @@ function shell() {
 onSyncStatus(() => { const l = $('#slab'); if (l) l.textContent = syncLabel(); });
 
 export function go(t) {
-  if (!reduce && S.ui.tab !== t && document.startViewTransition && document.querySelector('.view:not([hidden])')) { try { document.startViewTransition(() => go0(t)); return; } catch { } }
+  if (!reduce && S.ui.tab !== t && document.startViewTransition && document.querySelector('.view:not([hidden])')) { try { let hecho = false; const corre = () => { if (!hecho) { hecho = true; go0(t); } }; const vt = document.startViewTransition(corre); [vt.ready, vt.finished].forEach(x => x && x.catch(() => { })); setTimeout(corre, 350); return; } catch { } }
   go0(t);
 }
 function go0(t) {

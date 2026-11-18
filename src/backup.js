@@ -78,8 +78,8 @@ export async function readCSV(file) {
   const rows = parseCSV((await file.text()).replace(/^﻿/, ''));
   if (rows.length < 2) throw new Error('El archivo no tiene filas.');
   const h = rows[0].map(x => x.trim().toLowerCase()), col = (...n) => h.findIndex(x => n.includes(x));
-  const iT = col('title', 'título', 'titulo'), iA = col('author', 'autor'), iP = col('number of pages', 'páginas', 'paginas', 'pages'), iS = col('exclusive shelf', 'estado', 'shelf'),
-    iD = col('date read', 'terminó', 'termino'), iR = col('my rating', 'calificación', 'calificacion'), iF = col('binding', 'formato');
+  const iT = col('title', 'título', 'titulo'), iA = col('author', 'authors', 'autor'), iP = col('number of pages', 'páginas', 'paginas', 'pages'), iS = col('exclusive shelf', 'read status', 'estado', 'shelf'),
+    iD = col('date read', 'last date read', 'terminó', 'termino'), iR = col('my rating', 'star rating', 'calificación', 'calificacion'), iF = col('binding', 'format', 'formato'), iY = col('original publication year', 'year published');
   if (iT < 0) throw new Error('No encontré la columna del título (Title).');
   const have = new Set(S.books.map(b => key(b.t, b.a)));
   const items = [], dup = [];
@@ -87,9 +87,9 @@ export async function readCSV(file) {
     const t = (r[iT] || '').trim(); if (!t) continue; const a = (r[iA] || '').trim() || 'Autor desconocido';
     if (have.has(key(t, a))) { dup.push(t); continue; }
     have.add(key(t, a));
-    const sh = (r[iS] || '').toLowerCase(); const s = /read/.test(sh) && !/to-read|por leer/.test(sh) && !/currently|leyendo/.test(sh) || /leído|leido|terminado/.test(sh) ? 'leido' : /currently|leyendo/.test(sh) ? 'leyendo' : 'porleer';
-    const p = parseInt(r[iP]) || 250, rating = Math.min(5, parseInt(r[iR]) || 0), dr = (r[iD] || '').replace(/\//g, '-').match(/\d{4}-\d{2}-\d{2}/)?.[0] || null;
-    items.push({ t, a, p, s, rating, en: s === 'leido' ? (dr || today()) : null, f: /kindle|ebook|epub/i.test(r[iF] || '') ? 'EPUB' : 'Papel' });
+    const sh = (r[iS] || '').toLowerCase(); const s = /did-not-finish|abandon/.test(sh) ? 'abandonado' : /read/.test(sh) && !/to-read|por leer/.test(sh) && !/currently|leyendo/.test(sh) || /leído|leido|terminado/.test(sh) ? 'leido' : /currently|leyendo/.test(sh) ? 'leyendo' : 'porleer';
+    const p = parseInt(r[iP]) || 250, rating = Math.min(5, Math.round(parseFloat(r[iR]) || 0)), anio = parseInt(r[iY]) || 0, dr = (r[iD] || '').replace(/\//g, '-').match(/\d{4}-\d{2}-\d{2}/)?.[0] || null;
+    items.push({ t, a, p, s, rating, anio, en: s === 'leido' ? (dr || today()) : null, f: /kindle|ebook|epub/i.test(r[iF] || '') ? 'EPUB' : 'Papel' });
   }
   return { items, dup };
 }
@@ -98,6 +98,7 @@ export async function addImported(items) {
     const b = await addBook({ t: it.t, a: it.a, p: it.p, f: it.f, hasFile: false, ...fallbackColors(it.t) });
     if (it.s !== 'porleer') { b.s = it.s; b.st = it.en || today(); b.en = it.s === 'leido' ? it.en : null; b.r = it.s === 'leido' ? it.p : 0; b.progress = it.s === 'leido' ? 1 : 0; }
     if (it.rating) b.rating = it.rating;
+    if (it.anio) b.anio = it.anio;
     await saveBook(b);
   }
 }

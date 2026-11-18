@@ -1,15 +1,20 @@
 import ePub from 'epubjs';
+import lit4 from '@fontsource/literata/files/literata-latin-400-normal.woff2?url';
+import lit4i from '@fontsource/literata/files/literata-latin-400-italic.woff2?url';
+import lit7 from '@fontsource/literata/files/literata-latin-700-normal.woff2?url';
+import lit7i from '@fontsource/literata/files/literata-latin-700-italic.woff2?url';
 import { S, byId, getFile, setStatus, persistBook, addPages, addTime, saveNote, removeNote, emit } from './state.js';
 import { $, $$, esc, ic, toast } from './ui.js';
 import { hayAsistente, abrirTraductor, abrirAsistente, grabarNota } from './tanda5.js';
 import { ensureEpub } from './sync.js';
 import { acentoLibro } from './diseno.js';
+import { instalarAyudas } from './ayudas.js';
 import { dockear } from './dock.js';
 import { nombreDispositivo, hace } from './dispositivo.js';
 import { SONIDOS, sonar, volumen, parar as pararAmb } from './ambient.js';
 
 const TH = { paper: ['#F1ECE0', '#26221B'], sepia: ['#E6D8B8', '#3B2E17'], night: ['#12181B', '#D7DBD6'], warm: ['#1D1610', '#E9D3B0'] };
-const FONTS = { libro: ['Original del libro', null], serif: ['Serif (Georgia)', "Georgia,'Times New Roman',serif"], sans: ['Sans', "system-ui,'Segoe UI',Roboto,sans-serif"], mono: ['Monoespaciada', "ui-monospace,Consolas,monospace"], legible: ['Para dislexia (espaciada)', 'Verdana,Tahoma,sans-serif'] };
+const FONTS = { libro: ['Original del libro', null], kindle: ['Estilo Kindle (Literata)', "'Literata',Georgia,serif"], serif: ['Serif (Georgia)', "Georgia,'Times New Roman',serif"], sans: ['Sans', "system-ui,'Segoe UI',Roboto,sans-serif"], mono: ['Monoespaciada', "ui-monospace,Consolas,monospace"], legible: ['Para dislexia (espaciada)', 'Verdana,Tahoma,sans-serif'] };
 const RATES = [0.8, 1, 1.2, 1.5, 1.8], SLEEPS = [['Apagado', 0], ['15 min', 15], ['30 min', 30], ['60 min', 60], ['Fin del capítulo', -1]];
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('bv-rprefs')) || {}; } catch { return {}; } })();
 const setPref = (k, v) => { prefs[k] = v; try { localStorage.setItem('bv-rprefs', JSON.stringify(prefs)); } catch { } };
@@ -59,7 +64,7 @@ export async function openReader(id, cfiTarget) {
   const rendition = book.renderTo($('#viewer', root), { width: '100%', height: '100%', flow: 'paginated', spread: 'auto', minSpreadWidth: 900, allowScriptedContent: false });
   // Estilos del texto: se vuelven a registrar cada vez que cambia algo (fuente, interlineado, márgenes, justificado).
   function registrarTemas() {
-    const lh = (prefs.lh || 16) / 10, fam = FONTS[prefs.font || 'libro']?.[1];
+    const lh = (prefs.lh || 16) / 10, fam = FONTS[prefs.font || 'kindle']?.[1];
     for (const [k, [bg, fg]] of Object.entries(TH)) {
       rendition.themes.register(k, {
         body: { background: `${bg} !important`, color: `${fg} !important`, 'line-height': `${lh} !important`, ...(prefs.font === 'legible' ? { 'letter-spacing': '0.03em !important', 'word-spacing': '0.12em !important' } : {}) },
@@ -78,6 +83,15 @@ export async function openReader(id, cfiTarget) {
     }
   }
   registrarTemas();
+  const ayudas = (() => { try { return instalarAyudas({ root, rendition, ePub, b, guardar: () => { import('./state.js').then(m => m.saveBook(b)); }, tam: () => fsz }); } catch (e) { console.warn('ayudas', e); return { html: () => '', poner() { }, rafaga: () => false, modo: () => '' }; } })();
+  // Literata (parecida a la letra de Kindle) viaja dentro de la app: se declara en cada página del libro.
+  rendition.hooks.content.register(contents => {
+    try {
+      const abs = u => new URL(u, location.href).href, d = contents.document, st = d.createElement('style');
+      st.textContent = [[lit4, 400, 'normal'], [lit4i, 400, 'italic'], [lit7, 700, 'normal'], [lit7i, 700, 'italic']].map(([u, w, i]) => `@font-face{font-family:'Literata';font-weight:${w};font-style:${i};font-display:swap;src:url('${abs(u)}') format('woff2')}`).join('');
+      d.head.appendChild(st);
+    } catch { }
+  });
   // Lectura asistida: se resalta el comienzo de cada palabra para que el ojo avance con menos esfuerzo.
   rendition.hooks.content.register(contents => {
     if (!prefs.bio) return;
@@ -271,11 +285,12 @@ export async function openReader(id, cfiTarget) {
   $('#rOpt', root).onclick = () => togglePanel('opt', `<h3>Letra y voz</h3><div class="opts">
     <div><div class="small" style="margin-bottom:6px">Fondo</div>${seg('th', [['paper', 'Papel'], ['sepia', 'Sepia'], ['night', 'Noche'], ['warm', 'Noche cálida']], root.dataset.theme)}
       <label class="chk"><input type="checkbox" id="autoN" ${prefs.autoNoche ? 'checked' : ''}> Noche cálida automática (22:00 a 6:00)</label></div>
-    <label>Tipografía<select id="fsel">${Object.entries(FONTS).map(([k, [n]]) => `<option value="${k}" ${(prefs.font || 'libro') === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+    <label>Tipografía<select id="fsel">${Object.entries(FONTS).map(([k, [n]]) => `<option value="${k}" ${(prefs.font || 'kindle') === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
     <div><div class="small" style="margin-bottom:6px">Tamaño de letra</div><div class="row"><button class="btn ghost" id="fm" style="color:inherit">A −</button><button class="btn ghost" id="fp" style="color:inherit">A +</button><span class="small" id="fv" style="align-self:center">${fsz} %</span></div></div>
     <label>Interlineado <span class="small" id="lhv">${((prefs.lh || 16) / 10).toString().replace('.', ',')}</span><input type="range" id="lh" min="12" max="24" value="${prefs.lh || 16}"></label>
     <label>Márgenes <span class="small" id="mgv">${prefs.mar ?? 8} px</span><input type="range" id="mg" min="0" max="60" value="${prefs.mar ?? 8}"></label>
     <div class="row"><label class="chk"><input type="checkbox" id="impr" ${prefs.impreso !== false ? 'checked' : ''}> Estilo de libro impreso</label><label class="chk"><input type="checkbox" id="just" ${prefs.just ? 'checked' : ''}> Justificado</label><label class="chk"><input type="checkbox" id="focus" ${prefs.focus ? 'checked' : ''}> Modo enfoque</label><label class="chk"><input type="checkbox" id="anim" ${prefs.anim !== false ? 'checked' : ''}> Animar páginas</label></div>
+    ${ayudas.html()}
     <div class="small" style="margin-top:6px">Comodidad</div>
     <div class="row"><label class="chk"><input type="checkbox" id="bioc" ${prefs.bio ? 'checked' : ''}> Lectura asistida (resalta el inicio de cada palabra)</label><label class="chk"><input type="checkbox" id="cal" ${prefs.calido ? 'checked' : ''}> Brillo cálido de noche (22:00 a 6:00)</label>
       ${AN?.teclasVolumen ? `<label class="chk"><input type="checkbox" id="vol" ${prefs.vol !== false ? 'checked' : ''}> Pasar página con las teclas de volumen</label><label class="chk"><input type="checkbox" id="pan" ${prefs.pant !== false ? 'checked' : ''}> Mantener la pantalla encendida</label>` : ''}</div>
@@ -288,6 +303,8 @@ export async function openReader(id, cfiTarget) {
     <label>Volumen del sonido <input type="range" id="ambv" min="5" max="100" value="${Math.round((prefs.ambv ?? .35) * 100)}"></label>
     <label>Velocidad<select id="rate">${RATES.map(r => `<option value="${r}" ${(prefs.rate || 1) === r ? 'selected' : ''}>${String(r).replace('.', ',')}x</option>`).join('')}</select></label></div>`, () => {
     $$('[data-th]', root).forEach(b2 => b2.onclick = () => { applyTheme(b2.dataset.th); $$('[data-th]', root).forEach(x => x.setAttribute('aria-selected', x === b2)); });
+    $('#ayu', root)?.addEventListener('change', e => ayudas.poner(e.target.value));
+    if ($('#raf', root)) $('#raf', root).onclick = () => { if (!ayudas.rafaga(prefs.ppm || 300, v => { setPref('ppm', v); prefs.ppm = v; })) toast('No hay texto para la ráfaga aquí'); else $('#rOpt', root).click(); };
     $('#autoN', root).onchange = e => { setPref('autoNoche', e.target.checked); prefs.autoNoche = e.target.checked; };
     $('#fsel', root).onchange = e => { setPref('font', e.target.value); reestilo(); };
     $('#fm', root).onclick = () => { fsz = Math.max(70, fsz - 10); setPref('fsz', fsz); applySize(); $('#fv', root).textContent = fsz + ' %'; };
