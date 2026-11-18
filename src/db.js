@@ -1,10 +1,12 @@
 // Almacenamiento local en el dispositivo (IndexedDB). No hay servidor.
-const NAME = 'biblioteca-viva';
+// Cada perfil tiene su propia base de datos (el principal no lleva sufijo).
+const PF = (() => { try { return localStorage.getItem('bv-perfil') || ''; } catch { return ''; } })();
+const NAME = 'biblioteca-viva' + (PF ? '-' + PF : '');
 let _db;
 function open() {
   if (_db) return _db;
   _db = new Promise((res, rej) => {
-    const r = indexedDB.open(NAME, 4);
+    const r = indexedDB.open(NAME, 5);
     r.onupgradeneeded = () => {
       const d = r.result, has = n => d.objectStoreNames.contains(n);
       if (!has('books')) d.createObjectStore('books', { keyPath: 'id', autoIncrement: true });
@@ -12,6 +14,7 @@ function open() {
       if (!has('log')) d.createObjectStore('log', { keyPath: 'id', autoIncrement: true });   // páginas leídas por día
       if (!has('notes')) d.createObjectStore('notes', { keyPath: 'id', autoIncrement: true }); // frases guardadas
       if (!has('meta')) d.createObjectStore('meta', { keyPath: 'key' });       // pisos, colecciones y lista de deseos
+      if (!has('idx')) d.createObjectStore('idx', { keyPath: 'id' });         // índice de texto para buscar en todos los libros
       if (!has('trash')) d.createObjectStore('trash', { keyPath: 'tid' });   // papelera: libros quitados, 30 días
       if (!has('tomb')) d.createObjectStore('tomb', { keyPath: 'uid' });     // libros/frases borrados (para que el borrado también se sincronice)
     };
@@ -34,3 +37,4 @@ export const all = s => tx(s, 'readonly', o => o.getAll());
 export const get = (s, k) => tx(s, 'readonly', o => o.get(k));
 export const put = (s, v, k) => tx(s, 'readwrite', o => o.put(v, k));
 export const del = (s, k) => tx(s, 'readwrite', o => o.delete(k));
+export const keys = s => tx(s, 'readonly', o => o.getAllKeys());

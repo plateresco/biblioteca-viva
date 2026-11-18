@@ -11,6 +11,7 @@ import { OBJ, PISO_H } from './objects.js';
 import { haptic } from './native.js';
 import { ordenar, series as seriesMapa } from './orden.js';
 import { visible } from './bloqueo.js';
+import { smart, cumple } from './smart.js';
 const lista = () => ordenar(S.books.filter(visible), P.sort);
 const ORDENES = [['orden', 'Mi orden'], ['color', 'Color'], ['serie', 'Serie'], ['autor', 'Autor']];
 import { coverUrl } from './state.js';
@@ -29,7 +30,11 @@ function packRows(books, avail) {
   if (cur.length) rows.push(cur);
   return rows;
 }
-export const inCol = b => { const c = S.ui.col; return c === null || (c === '_loan' ? !!b.loan : (b.cols || []).includes(c)); };
+export const inCol = b => {
+  const c = S.ui.col; if (c === null) return true; if (c === '_loan') return !!b.loan;
+  if (String(c).startsWith('s:')) { const sc = smart().find(x => 's:' + x.id === c); return sc ? cumple(b, sc.r) : true; }
+  return (b.cols || []).includes(c);
+};
 const stateOk = b => S.ui.filter === 'todos' || b.s === S.ui.filter;
 const dimmed = b => !stateOk(b) || !inCol(b);
 const hit = b => (S.ui.filter !== 'todos' || S.ui.col !== null) && !dimmed(b);
@@ -74,7 +79,7 @@ export function drawLib(ctx) {
   } else {
     body = `<div class="lrows">${lista().map(b => { const cu = coverUrl(b); return `<button class="lrow ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''}" data-id="${b.id}"><span class="lc" style="--c1:${b.c1 || '#555'};${cu ? `--art:url('${cu}')` : ''}"></span><span class="lt"><b>${esc(b.t)}</b><small>${esc(b.a)}</small></span><span class="spill" style="--c:${ST[b.s].c}"><i></i>${ST[b.s].n}</span><span class="lp">${b.p} págs.</span><span class="lb2"><i style="width:${Math.round((b.r || 0) / b.p * 100)}%"></i></span></button>`; }).join('')}</div>`;
   }
-  const cols = S.meta.cols;
+  const cols = [...S.meta.cols, ...smart().map(x => ({ id: 's:' + x.id, n: '✦ ' + x.n }))];
   v.innerHTML = `<div class="glow"></div>
   <div class="apphead"><div><h2>Mi biblioteca</h2><div class="sub">${S.books.length} libros · ${cnt('leido')} leídos</div></div>
     <div class="row" style="gap:8px"><button class="iconbtn" id="srch" aria-label="Buscar">${ic('search')}</button><button class="iconbtn" id="syn" aria-label="Sincronizar con Google Drive">${ic('cloud')}</button>

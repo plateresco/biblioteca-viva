@@ -5,6 +5,9 @@ import { pagesToday, streak, weekDots, leftText, pace, minutesToday, fmtDur, las
 import { reminderDue } from './reminder.js';
 import { sugerencias, FILTROS } from './sugerir.js';
 import { visible } from './bloqueo.js';
+import { planes, calculo } from './plan.js';
+import { unAnioAtras } from './recuerdos.js';
+import { abrirFoco, enCurso, sesiones } from './foco.js';
 import { RETOS, retosActivos, cfgReto } from './retos.js';
 
 // Sesión de lectura manual (para libros de papel o audiolibros; con EPUB el lector mide el tiempo solo)
@@ -17,8 +20,8 @@ export function currentBook() {
 }
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
-export const HOY_CARDS = [['cont', 'Seguir leyendo'], ['meta', 'Meta de hoy'], ['semana', 'Esta semana'], ['sesion', 'Sesión de lectura'], ['ritmo', 'Ritmo para terminar'], ['retos', 'Retos'], ['sig', 'Siguiente lectura'], ['retomar', 'Retomar'], ['frase', 'Frase de tus libros']];
-const CLAVES = { 'Seguir leyendo': 'cont', 'Meta de hoy': 'meta', 'Esta semana': 'semana', 'Sesión de lectura': 'sesion', 'Ritmo para terminar': 'ritmo', 'Retos': 'retos', 'Siguiente lectura': 'sig', 'Retomar': 'retomar', 'Frase de tus libros': 'frase' };
+export const HOY_CARDS = [['cont', 'Seguir leyendo'], ['meta', 'Meta de hoy'], ['semana', 'Esta semana'], ['sesion', 'Sesión de lectura'], ['ritmo', 'Ritmo para terminar'], ['plan', 'Plan de lectura'], ['foco', 'Sesión de foco'], ['ago', 'Un año atrás'], ['retos', 'Retos'], ['sig', 'Siguiente lectura'], ['retomar', 'Retomar'], ['frase', 'Frase de tus libros']];
+const CLAVES = { 'Seguir leyendo': 'cont', 'Meta de hoy': 'meta', 'Esta semana': 'semana', 'Sesión de lectura': 'sesion', 'Ritmo para terminar': 'ritmo', 'Plan de lectura': 'plan', 'Sesión de foco': 'foco', 'Un año atrás': 'ago', 'Retos': 'retos', 'Siguiente lectura': 'sig', 'Retomar': 'retomar', 'Frase de tus libros': 'frase' };
 // Orden y tarjetas escondidas elegidos en Apariencia.
 function ordenarHoy(v) {
   const cards = [...v.querySelectorAll(':scope .card.hc')]; if (!cards.length) return;
@@ -34,6 +37,7 @@ export function drawHoy(ctx) {
   const dots = weekDots(), st = streak();
   const sugs = sugerencias();
   const retosAct = RETOS.filter(r => retosActivos().includes(r.id));
+  const planesAct = planes().filter(b => visible(b)).map(b => ({ b, c: calculo(b) })), atras = unAnioAtras();
   if (!sess.bookId || !byId(sess.bookId)) sess.bookId = cur?.id ?? null;
   const cu = cur && coverUrl(cur);
   const sessBooks = S.books.filter(b => b.s === 'leyendo' || b.s === 'porleer');
@@ -59,6 +63,9 @@ export function drawHoy(ctx) {
      <div class="row2" style="margin-top:10px"><span class="sub">Páginas leídas</span><div class="stepper"><button id="pgm" aria-label="Menos">−</button><output id="pgo">${sess.pages}</output><button id="pgp" aria-label="Más">+</button></div></div></div>
    ${cur ? `<div class="card hc"><h3>Ritmo para terminar ${esc(cur.t)}</h3><div class="sub">Te quedan ${Math.max(0, cur.p - (cur.r || 0))} de ${cur.p} páginas.</div>
      <div class="ctl2"><span>Quiero terminarlo en</span><input id="rdays" type="range" min="3" max="60" value="21" aria-label="Días"><output id="rdo">21 días</output></div><div id="rout"></div></div>` : ''}
+   ${planesAct.length ? `<div class="card hc"><h3>Plan de lectura</h3>${planesAct.map(({ b, c }) => `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><b style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.t)}</b><span class="sub">${c.tarde ? 'Pasó la fecha' : `${c.ppd} págs. por día`}</span></div><div class="pbar" style="margin-top:5px"><i style="width:${Math.min(100, Math.round(c.hoy / Math.max(1, c.ppd) * 100))}%"></i></div><div class="sub" style="margin-top:3px">${c.hoy >= c.ppd ? 'Cumpliste lo de hoy.' : `Hoy ${c.hoy} de ${c.ppd} · quedan ${c.dias} ${c.dias === 1 ? 'día' : 'días'}`}</div></div>`).join('')}</div>` : ''}
+   <div class="card hc"><h3>Sesión de foco</h3><div class="sub">${enCurso() ? 'Hay una sesión en curso.' : (() => { const hoyS = sesiones().filter(x => x.d === today()); return hoyS.length ? `Hoy: ${hoyS.length} ${hoyS.length === 1 ? 'sesión' : 'sesiones'} · ${hoyS.reduce((a, x) => a + x.min, 0)} min` : 'Un tiempo fijo para leer sin distracciones.'; })()}</div><button class="go" id="fo" style="margin-top:10px">${enCurso() ? 'Ver sesión' : 'Empezar una sesión'}</button></div>
+   ${atras ? `<div class="card hc"><h3>Un año atrás</h3><div class="resume" style="margin-top:6px"><span class="rcov" style="--c1:${atras.b.c1 || '#555'};${coverUrl(atras.b) ? `--art:url('${coverUrl(atras.b)}')` : ''}"></span><div style="min-width:0;flex:1"><b>${atras.tipo === 'fin' ? `Terminabas «${esc(atras.b.t)}»` : `Empezabas «${esc(atras.b.t)}»`}</b><span>${atras.b.rating ? `${atras.b.rating} estrellas · ` : ''}${atras.notas} ${atras.notas === 1 ? 'frase guardada' : 'frases guardadas'}</span></div></div></div>` : ''}
    ${retosAct.length ? `<div class="card hc"><h3>Retos</h3>${retosAct.map(r => { const c = r.cfg ? (cfgReto(r.id) ?? r.def) : null, x = r.calc(c); return `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><b>${r.n}</b><span class="sub">${x.txt}</span></div><div class="pbar" style="margin-top:5px"><i style="width:${Math.min(100, Math.round(x.a / Math.max(1, x.t) * 100))}%"></i></div></div>`; }).join('')}</div>` : ''}
    ${sugs.length ? `<div class="card hc sigc"><h3>Siguiente lectura</h3><div class="sub">Calculado en tu teléfono con lo que ya sabes de tus libros.</div><div class="sgch" id="sgch"></div><div id="sgl"></div></div>` : ''}
    ${retomar.length ? `<div class="card hc"><h3>Retomar</h3>${retomar.map(b => `<div class="resume" data-id="${b.id}"><span class="rcov" style="--c1:${b.c1 || '#555'};${coverUrl(b) ? `--art:url('${coverUrl(b)}')` : ''}"></span><div style="min-width:0;flex:1"><b>${esc(b.t)}</b><span>${ST[b.s].n}${lastReadOf(b.id) ? ` · hace ${daysSince(lastReadOf(b.id))} días` : ''}</span></div><button class="go" data-r="${b.id}">Abrir</button></div>`).join('')}</div>` : ''}
@@ -67,6 +74,7 @@ export function drawHoy(ctx) {
 
   $('#hsr', v).onclick = () => import('./palette.js').then(m => m.openPalette());
   $$('.stp', v).forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'add') ctx.add(); else if (a === 'isbn') ctx.add('isbn'); else import('./more.js').then(m => { m.openMore('importar'); ctx.go('more'); }); });
+  $('#fo', v)?.addEventListener('click', abrirFoco);
   pintarSig(v, ctx, sugs);
   ordenarHoy(v);
   $('#goCur', v)?.addEventListener('click', () => cur.hasFile ? ctx.openReader(cur.id) : ctx.openSheet(cur.id));

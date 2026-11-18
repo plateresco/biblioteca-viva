@@ -62,6 +62,7 @@ public class MainActivity extends Activity {
     static final int REQ_FOTO = 44;
     Uri fotoUri;
     String pendienteAtajo = null, pendienteTexto = null;
+    boolean volumenPagina = false;
     boolean dndPrevio = false; int filtroPrevio = -1;
     WebView web;
     android.speech.tts.TextToSpeech voz; boolean vozLista = false;
@@ -144,6 +145,18 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() { if (instancia == this) instancia = null; try { if (neural != null) neural.cerrar(); } catch (Throwable ignored) { } try { if (voz != null) { voz.stop(); voz.shutdown(); } } catch (Exception ignored) { } super.onDestroy(); }
+
+    // Con el lector abierto, las teclas de volumen pasan la pagina (si el usuario lo activo)
+    @Override public boolean onKeyDown(int k, android.view.KeyEvent e) {
+        if (volumenPagina && (k == android.view.KeyEvent.KEYCODE_VOLUME_UP || k == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            js("window.__volumen&&window.__volumen('" + (k == android.view.KeyEvent.KEYCODE_VOLUME_UP ? "up" : "down") + "')"); return true;
+        }
+        return super.onKeyDown(k, e);
+    }
+    @Override public boolean onKeyUp(int k, android.view.KeyEvent e) {
+        if (volumenPagina && (k == android.view.KeyEvent.KEYCODE_VOLUME_UP || k == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) return true;
+        return super.onKeyUp(k, e);
+    }
 
     @Override protected void onNewIntent(Intent i) { super.onNewIntent(i); setIntent(i); manejarIntent(i); }
 
@@ -403,6 +416,11 @@ public class MainActivity extends Activity {
                     });
                 } catch (Throwable e) { js("window.__bioError&&window.__bioError()"); }
             });
+        }
+
+        @JavascriptInterface public void teclasVolumen(boolean on) { volumenPagina = on; }
+        @JavascriptInterface public void pantallaEncendida(final boolean on) {
+            runOnUiThread(() -> { if (on) getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); });
         }
 
         /* Widgets de la pantalla de inicio */

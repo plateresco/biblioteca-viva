@@ -14,7 +14,7 @@ const setLS = (k, v) => { try { v == null ? localStorage.removeItem(k) : localSt
 
 export const getClientId = () => NATIVE ? 'nativo' : LS('bv-gcid') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 export const setClientId = v => setLS('bv-gcid', v.trim() || null);
-export const isEnabled = () => LS('bv-sync-on') === '1';
+export const isEnabled = () => LS('bv-sync-on') === '1' && !LS('bv-perfil');          // los perfiles adicionales se guardan solo en este dispositivo
 export const lastSync = () => +LS('bv-last-sync') || 0;
 export const lastBackup = () => +LS('bv-last-backup') || 0;
 export const disable = () => { setLS('bv-sync-on', null); token = null; if (NATIVE) A.cerrarSesionGoogle(); };

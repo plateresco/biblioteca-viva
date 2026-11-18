@@ -8,6 +8,14 @@ import { verPapelera, recuperar, borrarDePapelera, DIAS_PAPELERA } from './state
 import { exportJSON, importJSON, exportCSV, readCSV, addImported, exportCifrado } from './backup.js';
 import { abrirImportClippings } from './clippings.js';
 import { abrirCatalogo, disponible as hayCatalogo } from './catalogo.js';
+import { smart, miembros, IDEAS, editarSmart } from './smart.js';
+import { planes, calculo, fijarPlan, calendario } from './plan.js';
+import { inventario, mb, sePuedeQuitar, quitarLocal, bajar, sinAbrir } from './espacio.js';
+import { construirPagina, guardarPagina } from './webshelf.js';
+import { abrirFoco, sesiones as sesionesFoco } from './foco.js';
+import { elegirLibro as elegirPersonajes } from './personajes.js';
+import { pendientes as sinIndice, indexar, buscarTexto } from './indice.js';
+import { lista as listaPerfiles, perfilActivo, nombreActivo, crear as crearPerfil, cambiar as cambiarPerfil, borrar as borrarPerfil } from './perfiles.js';
 import { RETOS, retosActivos, cfgReto, fijarReto, fijarCfg, LOGROS } from './retos.js';
 import { palabras, repasarGlosario, quitarPalabra, pendientes as glPend } from './glosario.js';
 import { hayPin, fijarPin, quitarPin, verificarPin, pedirPin, minutosAuto, fijarAuto as fijarAutoPin, bioActiva, fijarBio, verOcultos } from './bloqueo.js';
@@ -30,6 +38,14 @@ const MENU = [
   ['diario', 'Diario de lectura', () => 'Lo que leíste, día por día', 'clock'],
   ['compartir', 'Compartir mi estante', () => 'Una imagen, no un enlace', 'image'],
   ...(hayCatalogo() ? [['catalogo', 'Clásicos gratis', () => 'Libros de dominio público en un toque', 'book']] : []),
+  ['buscar', 'Buscar en mis libros', () => 'Texto completo, frases, notas y glosario', 'search'],
+  ['smart', 'Colecciones inteligentes', () => `${smart().length} con reglas que se actualizan solas`, 'tag'],
+  ['plan', 'Plan de lectura', () => { const n = planes().length; return n ? `${n} con fecha` : 'Terminar un libro para una fecha'; }, 'clock'],
+  ['foco', 'Sesiones de foco', () => `${sesionesFoco().length} sesiones hechas`, 'clock'],
+  ['espacio', 'Almacenamiento', () => 'Espacio, libros en Drive y para viaje', 'download'],
+  ['personajes', 'Personajes', () => 'Cuaderno de personajes de cada libro', 'users'],
+  ['webshelf', 'Mi estantería como página web', () => 'Un archivo para compartir', 'image'],
+  ['perfiles', 'Perfiles', () => `Ahora: ${nombreActivo()}`, 'users'],
   ['retos', 'Retos y logros', () => { const g = Object.keys(S.meta.logros || {}).length; return `${retosActivos().length} retos activos · ${g} de ${LOGROS.length} logros`; }, 'star'],
   ['glosario', 'Glosario', () => `${palabras().length} palabras guardadas`, 'info'],
   ['privacidad', 'Privacidad y bloqueo', () => hayPin() ? 'Bloqueo con PIN activado' : 'PIN, libros ocultos y copia cifrada', 'keyboard'],
@@ -68,12 +84,12 @@ const PAGES = {
     b.innerHTML = `<div class="card"><h3>Colecciones</h3><div class="sub">Agrupan por tema o motivo, aparte de los pisos. Asigna libros desde su ficha.</div>
       ${S.meta.cols.map(c => `<div class="crow" data-id="${c.id}"><input value="${esc(c.n)}" data-n="${c.id}" aria-label="Nombre de la colección" maxlength="30"><span class="small">${S.books.filter(x => (x.cols || []).includes(c.id)).length} libros</span><button class="mbtn2" data-d="${c.id}" aria-label="Borrar colección">${ic('trash')}</button></div>`).join('') || '<div class="sub" style="margin-top:10px">Aún no tienes colecciones. Prueba con «Clásicos» o «Para regalar».</div>'}
       <form class="inl" id="nc"><input name="n" placeholder="Nueva colección" maxlength="30" aria-label="Nueva colección"><button class="btn" type="submit">Agregar</button></form></div>
-     <div class="card"><h3>Prestados</h3>${loans.map(x => `<div class="loan"><div class="av">${esc((x.loan.to[0] || '?').toUpperCase())}</div><div style="min-width:0"><b>${esc(x.t)}</b><span class="small" style="display:block">Prestado a ${esc(x.loan.to)} · hace ${daysSince(x.loan.since) ?? 0} días</span></div><div class="acts"><button data-r="${x.id}">Recordar</button><button data-b="${x.id}">Ya volvió</button></div></div>`).join('') || '<div class="sub" style="margin-top:8px">Ningún libro prestado.</div>'}
-      <form class="inl" id="nl" style="margin-top:12px"><select name="b" aria-label="Libro">${S.books.filter(x => !x.loan).map(x => `<option value="${x.id}">${esc(x.t)}</option>`).join('')}</select><input name="to" placeholder="¿A quién?" required maxlength="30" aria-label="Persona"><button class="btn" type="submit">Prestar</button></form></div>`;
+     <div class="card"><h3>Prestados</h3>${loans.map(x => `<div class="loan"><div class="av">${esc((x.loan.to[0] || '?').toUpperCase())}</div><div style="min-width:0"><b>${esc(x.t)}</b><span class="small" style="display:block">Prestado a ${esc(x.loan.to)} · hace ${daysSince(x.loan.since) ?? 0} días${x.loan.due ? ` · devolver el ${new Date(x.loan.due + 'T00:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}` : ''}</span></div><div class="acts"><button data-r="${x.id}">Recordar</button><button data-b="${x.id}">Ya volvió</button></div></div>`).join('') || '<div class="sub" style="margin-top:8px">Ningún libro prestado.</div>'}
+      <form class="inl" id="nl" style="margin-top:12px"><select name="b" aria-label="Libro">${S.books.filter(x => !x.loan).map(x => `<option value="${x.id}">${esc(x.t)}</option>`).join('')}</select><input name="to" placeholder="¿A quién?" required maxlength="30" aria-label="Persona"><input name="due" type="date" aria-label="Devolver el" title="Devolver el (opcional)"><button class="btn" type="submit">Prestar</button></form></div>`;
     $('#nc', b).onsubmit = async e => { e.preventDefault(); const n = new FormData(e.target).get('n').trim(); if (!n) return; S.meta.cols.push({ id: newId(), n }); await saveMeta(); };
     $$('[data-n]', b).forEach(i => i.onchange = async () => { const c = S.meta.cols.find(x => x.id === i.dataset.n); c.n = i.value.trim() || c.n; await saveMeta(); });
     $$('[data-d]', b).forEach(x => x.onclick = async () => { const id = x.dataset.d; S.meta.cols = S.meta.cols.filter(c => c.id !== id); for (const k of S.books) if ((k.cols || []).includes(id)) { k.cols = k.cols.filter(c => c !== id); await saveBook(k); } if (S.ui.col === id) S.ui.col = null; await saveMeta(); });
-    $('#nl', b)?.addEventListener('submit', async e => { e.preventDefault(); const d = new FormData(e.target), x = byId(+d.get('b')); if (!x) return; x.loan = { to: d.get('to').trim(), since: today() }; await saveBook(x); toast('Anotado'); });
+    $('#nl', b)?.addEventListener('submit', async e => { e.preventDefault(); const d = new FormData(e.target), x = byId(+d.get('b')); if (!x) return; x.loan = { to: d.get('to').trim(), since: today(), ...(d.get('due') ? { due: d.get('due') } : {}) }; await saveBook(x); toast('Anotado'); });
     $$('[data-b]', b).forEach(x => x.onclick = async () => { const k = byId(+x.dataset.b); k.loan = null; await saveBook(k); toast('Qué bueno que volvió'); });
     $$('[data-r]', b).forEach(x => x.onclick = async () => { const k = byId(+x.dataset.r), msg = `Hola ${k.loan.to}, ¿cómo vas con «${k.t}»? Cuando lo termines me avisas para recuperarlo. ¡Gracias!`; try { await navigator.clipboard.writeText(msg); toast('Mensaje copiado, listo para enviar'); } catch { toast(msg); } });
   },
@@ -232,6 +248,122 @@ const PAGES = {
     $('#cp', b).onclick = async () => { try { await navigator.clipboard.writeText(txt); toast('Pregunta copiada'); } catch { $('#ask', b).select(); toast('Selecciónala y cópiala'); } };
   },
   catalogo(b) { b.innerHTML = '<div class="card"><h3>Clásicos gratis</h3><div class="sub">Libros de dominio público de Project Gutenberg, en español y otros idiomas.</div><div class="row" style="margin-top:12px"><button class="btn" id="ab">Abrir el catálogo</button></div></div>'; $('#ab', b).onclick = abrirCatalogo; },
+  buscar(b) {
+    let libro = '', fuentes = { texto: true, frases: true, glosario: true };
+    const draw = async () => {
+      const pend = await sinIndice(), libros = S.books.filter(x => !x.oculto && (x.f === 'EPUB' || x.f === 'PDF') && x.hasFile);
+      b.innerHTML = `<div class="card"><input id="bq" type="search" placeholder="Buscar en todos mis libros" aria-label="Buscar" style="width:100%" autocomplete="off">
+        <div class="row" style="gap:6px;margin-top:10px">${[['texto', 'Texto de los libros'], ['frases', 'Mis frases y notas'], ['glosario', 'Glosario']].map(([k, n]) => `<button class="chip" data-f="${k}" aria-pressed="${fuentes[k]}">${n}</button>`).join('')}</div>
+        <label style="display:grid;gap:4px;margin-top:10px;font-size:13px">Libro<select id="bl"><option value="">Todos</option>${libros.map(x => `<option value="${x.id}" ${String(x.id) === libro ? 'selected' : ''}>${esc(x.t)}</option>`).join('')}</select></label></div>
+        ${pend.length ? `<div class="card" style="margin-top:12px"><b>${pend.length} ${pend.length === 1 ? 'libro sin indexar' : 'libros sin indexar'}</b><div class="sub">Para buscar dentro del texto, la app lee cada libro una vez y guarda un índice en este dispositivo.</div><div class="pbar" style="margin-top:8px"><i id="ip" style="width:0%"></i></div><div class="row" style="margin-top:10px"><button class="btn" id="ib">Indexar ahora</button></div><div class="small" id="im" style="margin-top:6px"></div></div>` : ''}
+        <div class="small" id="bn" style="margin:12px 2px"></div><div id="br" style="display:grid;gap:10px"></div>`;
+      const busca = async () => {
+        const q = $('#bq', b).value.trim(), r = $('#br', b); if (q.length < 2) { $('#bn', b).textContent = ''; r.innerHTML = ''; return; }
+        const nq = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), n = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const sec = [];
+        const lt = S.books.filter(x => !x.oculto && n(x.t + ' ' + x.a).includes(nq)).slice(0, 6);
+        if (lt.length && !libro) sec.push(['Libros', lt.map(x => `<button class="hitr" data-open="${x.id}"><b>${esc(x.t)}</b><small>${esc(x.a)}</small></button>`)]);
+        if (fuentes.frases) { const fr = S.notes.filter(x => (!libro || String(x.bookId) === libro) && n(x.text + ' ' + (x.comment || '')).includes(nq)).slice(0, 12); if (fr.length) sec.push(['Frases y notas', fr.map(x => `<button class="hitr" data-open="${x.bookId}" data-t="${esc(x.pdfPag || x.cfi || '')}"><span>${esc(x.text.slice(0, 160))}</span>${x.comment ? `<small>Nota: ${esc(x.comment.slice(0, 80))}</small>` : ''}<small>${esc(x.title || '')}</small></button>`)]); }
+        if (fuentes.glosario && !libro) { const g = (S.meta.gloss || []).filter(x => n(x.w + ' ' + x.def).includes(nq)).slice(0, 8); if (g.length) sec.push(['Glosario', g.map(x => `<div class="hitr"><b>${esc(x.w)}</b><small>${esc((x.def || '').split('\n')[0].slice(0, 120))}</small></div>`)]); }
+        if (fuentes.texto) { const tx = await buscarTexto(q, { libroId: libro ? +libro : null }); if (tx.length) sec.push([`Texto de los libros (${tx.length}${tx.length >= 80 ? '+' : ''})`, tx.map(h => `<button class="hitr" data-open="${h.b.id}" data-t="${esc(h.it.h || h.it.p)}"><span>${esc(h.ant)}<mark>${esc(h.hit)}</mark>${esc(h.des)}</span><small>${esc(h.b.t)}${h.it.p ? ' · pág. ' + h.it.p : ''}</small></button>`)]); }
+        const total = sec.reduce((a, x) => a + x[1].length, 0);
+        $('#bn', b).textContent = total ? `${total} resultados` : 'No encontré nada.';
+        r.innerHTML = sec.map(([t, l]) => `<div><div class="tag2">${t}</div><div style="display:grid;gap:8px">${l.join('')}</div></div>`).join('');
+        $$('[data-open]', r).forEach(x => x.onclick = () => { const id = +x.dataset.open, t = x.dataset.t; ctx.openReader(id, /^\d+$/.test(t) ? +t : (t || undefined)); });
+      };
+      let tm = 0; $('#bq', b).addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(busca, 300); });
+      $('#bl', b).onchange = e => { libro = e.target.value; busca(); };
+      $$('[data-f]', b).forEach(x => x.onclick = () => { fuentes[x.dataset.f] = !fuentes[x.dataset.f]; x.setAttribute('aria-pressed', fuentes[x.dataset.f]); busca(); });
+      $('#ib', b)?.addEventListener('click', async e => {
+        e.target.disabled = true; let i = 0;
+        for (const x of pend) { i++; $('#im', b).textContent = `Leyendo «${x.t}» (${i} de ${pend.length})…`; try { await indexar(x, p => { $('#ip', b).style.width = ((i - 1 + p) / pend.length * 100) + '%'; }); } catch (err) { console.warn('indexar', err); } await new Promise(r => setTimeout(r, 20)); }
+        toast('Índice listo'); draw();
+      });
+    };
+    draw();
+  },
+  smart(b) {
+    const draw = () => {
+      const l = smart();
+      b.innerHTML = `<div class="card"><h3>Colecciones inteligentes</h3><div class="sub">Listas con reglas: los libros entran y salen solos. Aparecen como filtros en la estantería, con un ✦.</div>
+        ${l.map(x => `<div class="trit"><div style="min-width:0;flex:1"><b>${esc(x.n)}</b><div class="small">${miembros(x.r).length} libros</div></div><button class="btn ghost" data-e="${x.id}">Editar</button></div>`).join('') || '<div class="sub" style="margin-top:10px">Aún no tienes ninguna.</div>'}
+        <div class="row" style="margin-top:12px"><button class="btn" id="sn">Nueva colección</button></div></div>
+        <div class="card"><h3>Ideas para empezar</h3>${IDEAS.map((x, i) => `<div class="trit"><div style="min-width:0;flex:1"><b>${esc(x.n)}</b><div class="small">${miembros(x.r).length} libros ahora</div></div><button class="btn ghost" data-i="${i}">Agregar</button></div>`).join('')}</div>`;
+      $('#sn', b).onclick = () => editarSmart(null, draw);
+      $$('[data-e]', b).forEach(x => x.onclick = () => editarSmart(l.find(z => z.id === x.dataset.e), draw));
+      $$('[data-i]', b).forEach(x => x.onclick = async () => { const i = IDEAS[+x.dataset.i]; smart().push({ id: newId(), n: i.n, r: { ...i.r } }); await saveMeta(); toast('Colección creada'); draw(); });
+    };
+    draw();
+  },
+  plan(b) {
+    const draw = () => {
+      const ps = planes(), cand = S.books.filter(x => (x.s === 'leyendo' || x.s === 'porleer') && !x.plan && !x.oculto), cal = calendario();
+      b.innerHTML = `<div class="card"><h3>Plan de lectura</h3><div class="sub">Elige hasta cuándo quieres terminar un libro y la app calcula cuántas páginas por día. Si te atrasas, el resto se reparte solo.</div>
+        ${ps.map(x => { const c = calculo(x); return `<div class="reto"><div class="rh"><div style="min-width:0"><b>${esc(x.t)}</b><div class="sub">${c.tarde ? 'Pasó la fecha' : `${c.ppd} págs. por día · unos ${c.minutos} min`} · quedan ${c.quedan} págs.</div></div><button class="btn ghost" data-q="${x.id}" aria-label="Quitar el plan">${ic('x')}</button></div><label class="small" style="display:block;margin-top:6px">Terminar el <input type="date" data-d="${x.id}" value="${x.plan.fin}"></label></div>`; }).join('') || ''}
+        ${cand.length ? `<form class="inl" id="pf" style="margin-top:12px"><select name="b" aria-label="Libro">${cand.map(x => `<option value="${x.id}">${esc(x.t)}</option>`).join('')}</select><input name="f" type="date" required min="${today()}" aria-label="Fecha"><button class="btn" type="submit">Crear plan</button></form>` : '<div class="sub" style="margin-top:10px">No hay libros disponibles para planificar.</div>'}</div>
+        <div class="card"><h3>Calendario</h3><div class="sub">★ termina un plan · ! se devuelve un préstamo · punto: día con lectura</div>
+        <div class="calg"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>${cal.map(c => `<i class="${c.hoy ? 'hoy' : ''} ${c.pasado ? 'pas' : ''} ${c.fin.length ? 'fin' : ''} ${c.dev.length ? 'dev' : ''}" title="${esc([...c.fin.map(x => 'Termina ' + x.t), ...c.dev.map(x => 'Devolver ' + x.t)].join(' · '))}">${c.d.getDate()}${c.fin.length ? '★' : c.dev.length ? '!' : c.leido ? '·' : ''}</i>`).join('')}</div></div>`;
+      $('#pf', b)?.addEventListener('submit', async e => { e.preventDefault(); const d = new FormData(e.target), x = byId(+d.get('b')); await fijarPlan(x, d.get('f')); toast('Plan creado'); draw(); });
+      $$('[data-d]', b).forEach(i => i.onchange = async () => { await fijarPlan(byId(+i.dataset.d), i.value); draw(); });
+      $$('[data-q]', b).forEach(x => x.onclick = async () => { await fijarPlan(byId(+x.dataset.q), null); draw(); });
+    };
+    draw();
+  },
+  foco(b) {
+    const l = sesionesFoco().slice().reverse(), tot = l.reduce((a, x) => a + x.min, 0), hoyN = l.filter(x => x.d === today());
+    const porHora = Array(24).fill(0); l.forEach(x => { porHora[new Date(x.t).getHours()] += x.min; }); const mx = Math.max(...porHora), mejor = mx ? porHora.indexOf(mx) : -1;
+    b.innerHTML = `<div class="card"><h3>Sesiones de foco</h3><div class="sub">Un tiempo fijo para leer sin distracciones, con avisos para descansar la vista.</div><div class="row" style="margin-top:12px"><button class="btn" id="fg">Empezar una sesión</button></div></div>
+      <div class="card"><div class="rpair"><div><b>${l.length}</b><span>sesiones</span></div><div><b>${tot}</b><span>minutos</span></div><div><b>${hoyN.length}</b><span>hoy</span></div></div>${mejor >= 0 ? `<div class="sub" style="margin-top:10px">Rindes más a las ${String(mejor).padStart(2, '0')}:00.</div>` : ''}</div>
+      ${l.length ? `<div class="card"><h3>Historial</h3>${l.slice(0, 20).map(x => `<div class="trit"><div style="flex:1;min-width:0"><b>${x.min} min</b><div class="small">${new Date(x.t).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}${x.pag ? ` · ${x.pag} págs.` : ''}${x.libro ? ' · ' + esc((S.books.find(k => k.uid === x.libro) || {}).t || '') : ''}</div></div></div>`).join('')}</div>` : ''}`;
+    $('#fg', b).onclick = abrirFoco;
+  },
+  espacio(b) {
+    const draw = async () => {
+      b.innerHTML = '<div class="card"><div class="skel" style="width:60%"></div><div class="skel" style="width:90%;margin-top:10px"></div></div>';
+      const inv = await inventario(), tot = inv.reduce((a, x) => a + (x.t || 0), 0), libre = sinAbrir(inv), mbL = libre.reduce((a, x) => a + x.t, 0);
+      b.innerHTML = `<div class="card"><h3>Almacenamiento</h3><div class="sub">Los libros con archivo ocupan espacio. Puedes quitar el archivo de este dispositivo y dejarlo en Google Drive: la ficha, tus frases y tu avance se quedan, y se baja de nuevo al abrirlo.</div>
+        <div class="metaN" style="margin-top:12px">${mb(tot)}<small> en este dispositivo</small></div>
+        ${!isEnabled() ? '<div class="note" style="margin-top:8px">Conecta Google Drive en «Sincronización y copia» para poder quitar archivos sin perderlos.</div>' : ''}
+        ${libre.length ? `<div class="row" style="margin-top:12px"><button class="btn" id="eq">Liberar ${mb(mbL)} (${libre.length} sin abrir hace meses)</button></div>` : ''}</div>
+        <div class="card"><h3>Libros</h3>${inv.map(({ b: x, t, local }) => `<div class="trit"><div style="min-width:0;flex:1"><b>${esc(x.t)}</b><div class="small">${local ? mb(t) + ' · en este dispositivo' : 'Solo en Drive'}${x.audio ? ' · audiolibro' : ''}</div></div>${local ? `<button class="btn ghost" data-q="${x.id}" ${sePuedeQuitar(x) ? '' : 'disabled title="Conecta Drive y sincroniza antes"'}>Quitar</button>` : `<button class="btn" data-b="${x.id}">Descargar</button>`}<label class="chk2" title="Tener sin conexión" style="margin:0"><input type="checkbox" data-v="${x.id}" ${x.offline ? 'checked' : ''}>Viaje</label></div>`).join('') || '<div class="sub">Aún no hay libros con archivo.</div>'}
+        ${inv.some(x => x.b.offline && !x.local) ? '<div class="row" style="margin-top:12px"><button class="btn" id="ev">Descargar los marcados para viaje</button></div>' : ''}</div>`;
+      $('#eq', b)?.addEventListener('click', async () => { for (const x of libre) { try { await quitarLocal(x.b); } catch { } } toast('Espacio liberado'); draw(); });
+      $$('[data-q]', b).forEach(x => x.onclick = async () => { try { await quitarLocal(byId(+x.dataset.q)); toast('Quitado de este dispositivo'); draw(); } catch (e) { toast(e.message); } });
+      $$('[data-b]', b).forEach(x => x.onclick = async () => { x.disabled = true; x.textContent = 'Bajando…'; try { await bajar(byId(+x.dataset.b)); toast('Descargado'); } catch (e) { toast(e.message || 'No se pudo descargar'); } draw(); });
+      $$('[data-v]', b).forEach(x => x.onchange = async () => { const k = byId(+x.dataset.v); k.offline = x.checked; await saveBook(k); });
+      $('#ev', b)?.addEventListener('click', async e => { e.target.disabled = true; for (const x of inv.filter(y => y.b.offline && !y.local)) { try { await bajar(x.b); } catch { } } toast('Libros listos para el viaje'); draw(); });
+    };
+    draw();
+  },
+  personajes(b) { b.innerHTML = '<div class="card"><h3>Personajes</h3><div class="sub">Un cuaderno por libro: ficha, relaciones, frases ligadas y un mapa. Solo se ven los personajes que ya aparecieron, para no adelantarte. También se abre desde el panel de subrayados del lector.</div><div class="row" style="margin-top:12px"><button class="btn" id="pe">Elegir un libro</button></div></div>'; $('#pe', b).onclick = elegirPersonajes; },
+  webshelf(b) {
+    b.innerHTML = `<div class="card"><h3>Mi estantería como página web</h3><div class="sub">Se genera un archivo único con tus libros, portadas y calificaciones. Súbelo a cualquier sitio gratuito (por ejemplo, GitHub Pages) y comparte el enlace. Los libros ocultos nunca se incluyen.</div>
+      <div class="row" style="gap:6px;margin:12px 0" id="ws">${Object.entries(ST).map(([k, v]) => `<button class="chip" data-s="${k}" aria-pressed="${k === 'leido' || k === 'leyendo'}">${v.n}</button>`).join('')}</div>
+      <label class="chk2"><input type="checkbox" id="wr"> Incluir mis reseñas</label>
+      <label style="display:grid;gap:4px;margin:10px 0;font-size:13px">Título<input id="wt" value="Mi biblioteca" maxlength="60"></label>
+      <div class="row"><button class="btn" id="wg">Crear la página</button></div><div class="small" id="wm" style="margin-top:8px"></div></div>`;
+    $$('#ws .chip', b).forEach(c => c.onclick = () => c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') !== 'true'));
+    $('#wg', b).onclick = async e => {
+      const estados = $$('#ws .chip[aria-pressed="true"]', b).map(c => c.dataset.s); if (!estados.length) return toast('Elige al menos un estado');
+      e.target.disabled = true; $('#wm', b).textContent = 'Preparando la página…';
+      try { const html = await construirPagina({ estados, resenas: $('#wr', b).checked, titulo: $('#wt', b).value.trim() || 'Mi biblioteca' }); await guardarPagina(html); $('#wm', b).textContent = `Listo (${mb(html.length)}). Guardada como mi-estanteria.html.`; }
+      catch (err) { console.error(err); $('#wm', b).textContent = 'No pude crear la página.'; }
+      e.target.disabled = false;
+    };
+  },
+  perfiles(b) {
+    const draw = () => {
+      const l = listaPerfiles(), act = perfilActivo();
+      b.innerHTML = `<div class="card"><h3>Perfiles</h3><div class="sub">Una biblioteca aparte para otra persona de la casa, en este mismo dispositivo: sus libros, frases y avance no se mezclan con los tuyos. Los perfiles adicionales se guardan solo aquí (no se sincronizan con Drive).</div>
+        <div class="trit" style="margin-top:12px"><div style="flex:1"><b>Principal</b><div class="small">${act ? '' : 'En uso'}</div></div>${act ? '<button class="btn" data-c="">Cambiar</button>' : ''}</div>
+        ${l.map(p => `<div class="trit"><div style="flex:1"><b>${esc(p.n)}</b><div class="small">${act === p.id ? 'En uso' : ''}</div></div>${act === p.id ? '' : `<button class="btn" data-c="${p.id}">Cambiar</button>`}<button class="btn ghost" data-d="${p.id}" aria-label="Borrar perfil">${ic('trash')}</button></div>`).join('')}
+        <form class="inl" id="pn" style="margin-top:12px"><input name="n" placeholder="Nombre del perfil" maxlength="24" required><button class="btn" type="submit">Crear perfil</button></form></div>`;
+      $('#pn', b).onsubmit = e => { e.preventDefault(); crearPerfil(new FormData(e.target).get('n')); draw(); };
+      $$('[data-c]', b).forEach(x => x.onclick = () => cambiarPerfil(x.dataset.c));
+      $$('[data-d]', b).forEach(x => x.onclick = () => { if (x.dataset.armed) borrarPerfil(x.dataset.d); else { x.dataset.armed = '1'; x.textContent = 'Toca otra vez'; } });
+    };
+    draw();
+  },
   retos(b) {
     const draw = () => {
       const ac = retosActivos(), got = S.meta.logros || {};

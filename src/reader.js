@@ -7,7 +7,7 @@ import { nombreDispositivo, hace } from './dispositivo.js';
 import { SONIDOS, sonar, volumen, parar as pararAmb } from './ambient.js';
 
 const TH = { paper: ['#F1ECE0', '#26221B'], sepia: ['#E6D8B8', '#3B2E17'], night: ['#12181B', '#D7DBD6'], warm: ['#1D1610', '#E9D3B0'] };
-const FONTS = { libro: ['Original del libro', null], serif: ['Serif (Georgia)', "Georgia,'Times New Roman',serif"], sans: ['Sans', "system-ui,'Segoe UI',Roboto,sans-serif"], mono: ['Monoespaciada', "ui-monospace,Consolas,monospace"], legible: ['Fácil de leer', 'Verdana,Tahoma,sans-serif'] };
+const FONTS = { libro: ['Original del libro', null], serif: ['Serif (Georgia)', "Georgia,'Times New Roman',serif"], sans: ['Sans', "system-ui,'Segoe UI',Roboto,sans-serif"], mono: ['Monoespaciada', "ui-monospace,Consolas,monospace"], legible: ['Para dislexia (espaciada)', 'Verdana,Tahoma,sans-serif'] };
 const RATES = [0.8, 1, 1.2, 1.5, 1.8], SLEEPS = [['Apagado', 0], ['15 min', 15], ['30 min', 30], ['60 min', 60], ['Fin del capítulo', -1]];
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('bv-rprefs')) || {}; } catch { return {}; } })();
 const setPref = (k, v) => { prefs[k] = v; try { localStorage.setItem('bv-rprefs', JSON.stringify(prefs)); } catch { } };
@@ -75,6 +75,19 @@ export async function openReader(id, cfiTarget) {
     }
   }
   registrarTemas();
+  // Lectura asistida: se resalta el comienzo de cada palabra para que el ojo avance con menos esfuerzo.
+  rendition.hooks.content.register(contents => {
+    if (!prefs.bio) return;
+    try {
+      const d = contents.document, w = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT, { acceptNode: n => /^(SCRIPT|STYLE|PRE|CODE|SVG|B)$/i.test(n.parentNode.nodeName) || n.nodeValue.trim().length < 3 ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT }), nodos = [];
+      let x; while ((x = w.nextNode())) nodos.push(x);
+      for (const n of nodos) {
+        const f = d.createDocumentFragment();
+        n.nodeValue.split(/(\s+)/).forEach(t => { if (/^\s*$/.test(t) || t.length < 3) { f.append(t); return; } const k = Math.max(1, Math.ceil(t.replace(/[^\p{L}]/gu, '').length * .4)); let c = 0, i = 0; for (; i < t.length && c < k; i++) if (/\p{L}/u.test(t[i])) c++; const b = d.createElement('b'); b.className = 'bio'; b.textContent = t.slice(0, i); f.append(b, t.slice(i)); });
+        n.parentNode.replaceChild(f, n);
+      }
+    } catch { }
+  });
   const applyTheme = t => { root.dataset.theme = t; rendition.themes.select(t); setPref('theme', t); };
   // Los márgenes se aplican al visor entero (así funcionan también con dos páginas) y se vuelve a paginar.
   const aplicarMargen = (sinResize) => { const m = prefs.mar ?? 8; const v = $('#viewer', root); v.style.left = v.style.right = m + 'px'; if (!sinResize) try { rendition.resize(); } catch { } };
@@ -122,10 +135,17 @@ export async function openReader(id, cfiTarget) {
   };
 
   if (prefs.dnd && AN?.noMolestar) { try { AN.noMolestar(true); } catch { } }
+  // Brillo cálido de noche, teclas de volumen para pasar página y pantalla siempre encendida
+  const calido = document.createElement('div'); calido.id = 'warm'; calido.hidden = true; root.appendChild(calido);
+  const pintaCalido = () => { const h = new Date().getHours(); calido.hidden = !(prefs.calido && (h >= 22 || h < 6)); };
+  pintaCalido(); const calT = setInterval(pintaCalido, 300000);
+  const usaVolumen = () => { try { if (AN?.teclasVolumen) { const on = prefs.vol !== false; AN.teclasVolumen(on); window.__volumen = on ? d => go(d === 'up' ? -1 : 1) : null; } } catch { } };
+  usaVolumen(); try { if (AN?.pantallaEncendida && prefs.pant !== false) AN.pantallaEncendida(true); } catch { }
   if (prefs.mar != null) aplicarMargen(true);      // antes de mostrar la primera página solo se fija el ancho; no se re-pagina
   if (prefs.amb) { sonar(prefs.amb, prefs.ambv ?? .35); root.addEventListener('pointerdown', () => { if (prefs.amb) sonar(prefs.amb, prefs.ambv ?? .35); }, { once: true }); }
   await rendition.display(cfiTarget || b.cfi || undefined);
   $('#rskel', root)?.remove();
+  import('./recuerdos.js').then(m => m.antesDeSeguir(b));
 
   // Marcas de capítulo sobre la barra de avance (según el lugar de cada capítulo en el libro).
   async function pintaTicks() {
@@ -168,7 +188,10 @@ export async function openReader(id, cfiTarget) {
   rendition.on('touchend', e => { const dx = e.changedTouches[0].screenX - tx, dy = e.changedTouches[0].screenY - ty; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1); });
   rendition.on('click', e => { // toque en los costados = pasar de página; en el centro, mueve el enfoque o salta a esa frase
     const w = e.view?.innerWidth || 0; if (!w || (e.view.getSelection && String(e.view.getSelection()))) return;
-    const x = e.clientX % w; if (x < w * .22) go(-1); else if (x > w * .78) go(1);
+    const x = e.clientX % w, z = prefs.zonas || 'norm';
+    if (z === 'solo') { if (x > w * .45) go(1); else if (x < w * .15) go(-1); else { if (prefs.focus) moverBanda(e.clientY); if (tts.on) saltarA(e); } return; }
+    const izq = z === 'zurdo' ? 1 : -1;
+    if (x < w * .22) go(izq); else if (x > w * .78) go(-izq);
     else { if (prefs.focus) moverBanda(e.clientY); if (tts.on) saltarA(e); }
   });
   // Modo enfoque: una banda clara que se mueve donde tocas; el resto de la página se atenúa.
@@ -250,6 +273,10 @@ export async function openReader(id, cfiTarget) {
     <label>Interlineado <span class="small" id="lhv">${((prefs.lh || 16) / 10).toString().replace('.', ',')}</span><input type="range" id="lh" min="12" max="24" value="${prefs.lh || 16}"></label>
     <label>Márgenes <span class="small" id="mgv">${prefs.mar ?? 8} px</span><input type="range" id="mg" min="0" max="60" value="${prefs.mar ?? 8}"></label>
     <div class="row"><label class="chk"><input type="checkbox" id="impr" ${prefs.impreso !== false ? 'checked' : ''}> Estilo de libro impreso</label><label class="chk"><input type="checkbox" id="just" ${prefs.just ? 'checked' : ''}> Justificado</label><label class="chk"><input type="checkbox" id="focus" ${prefs.focus ? 'checked' : ''}> Modo enfoque</label><label class="chk"><input type="checkbox" id="anim" ${prefs.anim !== false ? 'checked' : ''}> Animar páginas</label></div>
+    <div class="small" style="margin-top:6px">Comodidad</div>
+    <div class="row"><label class="chk"><input type="checkbox" id="bioc" ${prefs.bio ? 'checked' : ''}> Lectura asistida (resalta el inicio de cada palabra)</label><label class="chk"><input type="checkbox" id="cal" ${prefs.calido ? 'checked' : ''}> Brillo cálido de noche (22:00 a 6:00)</label>
+      ${AN?.teclasVolumen ? `<label class="chk"><input type="checkbox" id="vol" ${prefs.vol !== false ? 'checked' : ''}> Pasar página con las teclas de volumen</label><label class="chk"><input type="checkbox" id="pan" ${prefs.pant !== false ? 'checked' : ''}> Mantener la pantalla encendida</label>` : ''}</div>
+    <label>Zonas de toque<select id="zon"><option value="norm" ${(prefs.zonas || 'norm') === 'norm' ? 'selected' : ''}>Estándar: borde izquierdo atrás, derecho adelante</option><option value="zurdo" ${prefs.zonas === 'zurdo' ? 'selected' : ''}>Zurdo: invertidas</option><option value="solo" ${prefs.zonas === 'solo' ? 'selected' : ''}>Solo derecha: casi toda la pantalla avanza</option></select></label>
     <label>Brillo de la pantalla <span class="small" id="brv"></span><input type="range" id="br" min="0" max="75" value="${Math.round((prefs.dim || 0) * 100)}"></label>
     <label>Voz para leer en voz alta<select id="vsel">${voices().map(v => `<option value="${esc(v.name)}" ${v.name === prefs.voice ? 'selected' : ''}>${esc(nativa ? v.name.replace(/-/g, ' ') : v.name)} (${esc(v.lang)})${v.net ? ' · alta calidad' : ''}</option>`).join('') || '<option value="">Voz predeterminada del dispositivo</option>'}</select></label>
     <div id="vneu"></div>
@@ -265,6 +292,11 @@ export async function openReader(id, cfiTarget) {
     $('#lh', root).oninput = e => { setPref('lh', +e.target.value); $('#lhv', root).textContent = (e.target.value / 10).toString().replace('.', ','); reestilo(); };
     $('#mg', root).oninput = e => { setPref('mar', +e.target.value); $('#mgv', root).textContent = e.target.value + ' px'; clearTimeout(mgT); mgT = setTimeout(aplicarMargen, 120); };
     $('#impr', root).onchange = e => { setPref('impreso', e.target.checked); reestilo(); };
+    $('#bioc', root).onchange = async e => { setPref('bio', e.target.checked); prefs.bio = e.target.checked; toast('Se aplica al pasar de página'); try { const c = rendition.currentLocation()?.start?.cfi; if (c) await rendition.display(c); } catch { } };
+    $('#cal', root).onchange = e => { setPref('calido', e.target.checked); pintaCalido(); };
+    $('#vol', root)?.addEventListener('change', e => { setPref('vol', e.target.checked); usaVolumen(); });
+    $('#pan', root)?.addEventListener('change', e => { setPref('pant', e.target.checked); try { AN.pantallaEncendida(e.target.checked); } catch { } });
+    $('#zon', root).onchange = e => { setPref('zonas', e.target.value); };
     $('#just', root).onchange = e => { setPref('just', e.target.checked); reestilo(); };
     $('#focus', root).onchange = e => { setPref('focus', e.target.checked); aplicarEnfoque(); };
     $('#anim', root).onchange = e => setPref('anim', e.target.checked);
@@ -310,11 +342,12 @@ export async function openReader(id, cfiTarget) {
   rendition.hooks.content.register(() => { // vuelve a marcar los subrayados de este libro, cada uno con su color
     S.notes.filter(n => n.bookId === b.id && n.cfi).forEach(n => paint(n.cfi, n.color || 'amarillo'));
   });
-  $('#rNotes', root).onclick = () => togglePanel('notes', `<h3>Subrayados</h3><div id="mkl"></div><div id="nl"></div><button class="btn ghost" id="expn" style="margin-top:10px;color:inherit">Exportar este libro</button>`, () => {
+  $('#rNotes', root).onclick = () => togglePanel('notes', `<h3>Subrayados</h3><div id="mkl"></div><div id="nl"></div><div class="row" style="margin-top:10px;gap:8px"><button class="btn ghost" id="expn" style="color:inherit">Exportar este libro</button><button class="btn ghost" id="pjn" style="color:inherit">Personajes</button></div>`, () => {
     $('#mkl', root).innerHTML = marks().length ? `<div class="small" style="margin-bottom:6px">Marcadores</div>${marks().slice().sort((x, y) => x.pct - y.pct).map((m, i) => `<div class="hit nt"><button data-mk="${i}" style="text-align:left;flex:1">${ic('bookmark')} Página marcada${m.pct ? ` · ${m.pct} %` : ''}</button><button data-mx="${m.t}" aria-label="Quitar marcador">×</button></div>`).join('')}<div class="small" style="margin:10px 0 6px">Subrayados</div>` : '';
     const ordenadas = marks().slice().sort((x, y) => x.pct - y.pct);
     $$('[data-mk]', root).forEach(x => x.onclick = () => { stopTTS(); rendition.display(ordenadas[+x.dataset.mk].cfi); if (innerWidth < 1000) hidePanel(); });
     $$('[data-mx]', root).forEach(x => x.onclick = async () => { b.marks = marks().filter(m => String(m.t) !== x.dataset.mx); await persistBook(b); x.closest('.nt').remove(); pintaMark(); });
+    $('#pjn', root).onclick = () => import('./personajes.js').then(m => m.abrirPersonajes(b));
     $('#expn', root).onclick = () => import('./exportar.js').then(m => m.abrirExportar(b.id));
     const mine = S.notes.filter(n => n.bookId === b.id).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0));
     $('#nl', root).innerHTML = mine.length ? mine.map(n => `<div class="hit nt"><button data-g="${n.id}" style="text-align:left;flex:1"><i class="ndot" style="background:${COL[n.color] || COL.amarillo}"></i>${esc(n.text.slice(0, 140))}${n.text.length > 140 ? '…' : ''}</button><button data-c="${n.id}" aria-label="Nota">${ic('edit')}</button><button data-x="${n.id}" aria-label="Quitar">×</button></div>${n.comment ? `<div class="qnote" style="margin:-2px 0 8px 18px">${esc(n.comment)}</div>` : ''}`).join('') : '<div class="small">Aún no hay subrayados. Selecciona un texto y elige un color.</div>';
@@ -454,7 +487,7 @@ export async function openReader(id, cfiTarget) {
   const timeT = setInterval(() => { if (document.visibilityState === 'visible' && document.hasFocus()) { acc += 5; if (acc - flushed >= 20) { addTime(b.id, acc - flushed); flushed = acc; } } }, 5000);
   function close() {
     clearInterval(timeT); if (acc > flushed) addTime(b.id, acc - flushed);
-    stopTTS(); hideSave(); clearTimeout(saveT); persistBook(b); delete window.__lecturaAccion; pararAmb(); if (prefs.dnd && AN?.noMolestar) { try { AN.noMolestar(false); } catch { } }
+    stopTTS(); hideSave(); clearTimeout(saveT); persistBook(b); delete window.__lecturaAccion; pararAmb(); clearInterval(calT); try { AN?.teclasVolumen && AN.teclasVolumen(false); AN?.pantallaEncendida && AN.pantallaEncendida(false); } catch { } delete window.__volumen; if (prefs.dnd && AN?.noMolestar) { try { AN.noMolestar(false); } catch { } }
     document.removeEventListener('keyup', onKey);
     try { book.destroy(); } catch { }
     root.remove(); dockear(false); cur = null; emit();
