@@ -30,6 +30,7 @@ final class Widgets {
             for (int id : m.getAppWidgetIds(new ComponentName(c, ContinuarWidget.class))) m.updateAppWidget(id, continuar(c));
             for (int id : m.getAppWidgetIds(new ComponentName(c, RachaWidget.class))) m.updateAppWidget(id, racha(c));
             for (int id : m.getAppWidgetIds(new ComponentName(c, FraseWidget.class))) m.updateAppWidget(id, frase(c));
+            for (int id : m.getAppWidgetIds(new ComponentName(c, MetaWidget.class))) m.updateAppWidget(id, meta(c));
         } catch (Exception ignored) { }
     }
 
@@ -52,6 +53,28 @@ final class Widgets {
             v.setProgressBar(R.id.w_prog, 100, j.optInt("pct", 0), false);
         }
         v.setOnClickPendingIntent(R.id.w_root, abrir(c, "CONTINUAR"));
+        return v;
+    }
+
+    /** Anillo con las paginas de hoy contra la meta. */
+    static RemoteViews meta(Context c) {
+        JSONObject j = datos(c);
+        int hoy = j.optInt("hoy", 0), meta = Math.max(1, j.optInt("meta", 20));
+        int tam = 260; float g = 26f;
+        android.graphics.Bitmap bm = android.graphics.Bitmap.createBitmap(tam, tam, android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas cv = new android.graphics.Canvas(bm);
+        android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        p.setStyle(android.graphics.Paint.Style.STROKE); p.setStrokeWidth(g); p.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+        android.graphics.RectF r = new android.graphics.RectF(g, g, tam - g, tam - g);
+        p.setColor(0xFF2C3A40); cv.drawArc(r, 0, 360, false, p);
+        p.setColor(0xFF62B7AB); cv.drawArc(r, -90, 360f * Math.min(1f, hoy / (float) meta), false, p);
+        android.graphics.Paint t = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        t.setColor(0xFFEDE6D6); t.setTextAlign(android.graphics.Paint.Align.CENTER); t.setTextSize(90f); t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        cv.drawText(String.valueOf(hoy), tam / 2f, tam / 2f + 30f, t);
+        RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget_meta);
+        v.setImageViewBitmap(R.id.w_anillo, bm);
+        v.setTextViewText(R.id.w_meta_t, hoy >= meta ? "¡Meta cumplida!" : hoy + " de " + meta + " págs.");
+        v.setOnClickPendingIntent(R.id.w_root3, abrir(c, "CONTINUAR"));
         return v;
     }
 

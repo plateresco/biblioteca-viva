@@ -4,6 +4,7 @@ import { $, esc, ic, toast } from './ui.js';
 import { leerCbz } from './documentos.js';
 import { ensureEpub } from './sync.js';
 import { dockear } from './dock.js';
+import { detectarVinetas } from './vinetas.js';
 
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('bv-comicprefs')) || {}; } catch { return {}; } })();
 const setPref = (k, v) => { prefs[k] = v; try { localStorage.setItem('bv-comicprefs', JSON.stringify(prefs)); } catch { } };
@@ -28,6 +29,19 @@ export async function openComic(id, pag0) {
   if (b.s !== 'leyendo' && b.s !== 'leido') await setStatus(b, 'leyendo');
   const url = async i => { if (i < 1 || i > n) return null; if (!urls.has(i)) urls.set(i, URL.createObjectURL(await zip.files[nombres[i - 1]].async('blob'))); return urls.get(i); };
   const dos = () => !!prefs.dos && $('#cArea', root).clientWidth >= 820 && pag < n;
+  // Modo viñeta: cada recuadro de la página se acerca a la pantalla, en orden de lectura.
+  let paneles = [], vi = 0, ultima = false;
+  const vOn = () => !!prefs.vineta && !dos() && paneles.length > 1;
+  function zoomV() {
+    const area = $('#cArea', root), cont = $('#cImgs', root), img = cont.querySelector('img'); if (!img) return;
+    area.classList.toggle('vinm', vOn()); cont.classList.toggle('vin', vOn());
+    if (!vOn()) { img.removeAttribute('style'); return; }
+    const AW = area.clientWidth, AH = area.clientHeight, nw = img.naturalWidth, nh = img.naturalHeight, s0 = Math.min(AW / nw, AH / nh), Wd = nw * s0, Hd = nh * s0, q = paneles[Math.min(vi, paneles.length - 1)];
+    const pw = (q.x1 - q.x0) * Wd, ph = (q.y1 - q.y0) * Hd, sc = Math.min(AW * .96 / pw, AH * .96 / ph, 4), cx = (q.x0 + q.x1) / 2 * Wd, cy = (q.y0 + q.y1) / 2 * Hd;
+    const L = (AW - Wd) / 2, T = (AH - Hd) / 2;
+    img.style.cssText = `position:absolute;max-width:none;max-height:none;width:${Wd}px;height:${Hd}px;left:${L}px;top:${T}px;transform-origin:0 0;transform:translate(${AW / 2 - L - sc * cx}px,${AH / 2 - T - sc * cy}px) scale(${sc})`;
+    $('#cLoc', root).textContent = `Página ${pag} de ${n} · viñeta ${Math.min(vi, paneles.length - 1) + 1} de ${paneles.length}`;
+  }
 
   async function dibuja() {
     const mi = ++gen, ds = dos(), ids = ds ? [pag, pag + 1] : [pag]; if (ds && prefs.manga) ids.reverse();
@@ -35,6 +49,12 @@ export async function openComic(id, pag0) {
     const cont = $('#cImgs', root); cont.className = 'cimgs' + (ds ? ' dos' : '') + (prefs.ajuste === 'alto' ? ' alto' : '');
     cont.innerHTML = us.map(u => `<img src="${u}" alt="">`).join(''); $('#cSkel', root)?.remove(); $('#cArea', root).scrollTop = 0;
     $('#cLoc', root).textContent = `Página ${pag}${ds ? '–' + (pag + 1) : ''} de ${n}`; $('#cSlide', root).value = pag; pintaMark();
+    paneles = []; vi = 0;
+    if (prefs.vineta && !ds) {
+      const im = cont.querySelector('img');
+      try { if (im && !im.complete) await new Promise(r => { im.onload = r; im.onerror = r; }); if (mi !== gen) return; paneles = detectarVinetas(im, { manga: !!prefs.manga }); } catch { paneles = []; }
+      if (ultima) vi = Math.max(0, paneles.length - 1); ultima = false; zoomV();
+    } else { ultima = false; zoomV(); }
     url(pag + (ds ? 2 : 1)); url(pag + (ds ? 3 : 2));            // se van preparando las siguientes
   }
   let guarda = 0, fin = b.s === 'leido', acc = 0, flushed = 0;
@@ -44,25 +64,28 @@ export async function openComic(id, pag0) {
     if (pr >= .985 && !fin) { fin = true; await setStatus(b, 'leido'); toast('¡Terminaste el cómic!'); }
   }
   const ir = x => { pag = Math.min(n, Math.max(1, x)); dibuja(); avanza(); };
+  const sigR = () => { if (vOn() && vi < paneles.length - 1) { vi++; zoomV(); return; } if (vOn()) return ir(pag + paso()); (prefs.manga ? ant() : sig()); };
+  const antR = () => { if (vOn() && vi > 0) { vi--; zoomV(); return; } if (vOn()) { ultima = true; return ir(pag - paso()); } (prefs.manga ? sig() : ant()); };
   const paso = () => (dos() ? 2 : 1), sig = () => ir(pag + (prefs.manga ? -paso() : paso())), ant = () => ir(pag + (prefs.manga ? paso() : -paso()));
-  $('#cNext', root).onclick = () => (prefs.manga ? ir(pag - paso()) : ir(pag + paso())); $('#cPrev', root).onclick = () => (prefs.manga ? ir(pag + paso()) : ir(pag - paso()));
+  $('#cNext', root).onclick = () => (vOn() ? sigR() : prefs.manga ? ir(pag - paso()) : ir(pag + paso())); $('#cPrev', root).onclick = () => (vOn() ? antR() : prefs.manga ? ir(pag + paso()) : ir(pag - paso()));
   $('#cSlide', root).oninput = e => ir(+e.target.value);
-  const tecla = e => { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return; if (e.key === 'ArrowRight') (prefs.manga ? ant() : sig()); else if (e.key === 'ArrowLeft') (prefs.manga ? sig() : ant()); else if (e.key === 'Escape') cerrar(); };
+  const tecla = e => { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return; if (e.key === 'ArrowRight') (vOn() ? sigR() : prefs.manga ? ant() : sig()); else if (e.key === 'ArrowLeft') (vOn() ? antR() : prefs.manga ? sig() : ant()); else if (e.key === 'Escape') cerrar(); };
   document.addEventListener('keyup', tecla);
   const area = $('#cArea', root); let tx = 0, ty = 0, ult = 0;
   area.addEventListener('touchstart', e => { tx = e.changedTouches[0].screenX; ty = e.changedTouches[0].screenY; }, { passive: true });
-  area.addEventListener('touchend', e => { const dx = e.changedTouches[0].screenX - tx, dy = e.changedTouches[0].screenY - ty; if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) (dx < 0 ? sig() : ant()); }, { passive: true });
+  area.addEventListener('touchend', e => { const dx = e.changedTouches[0].screenX - tx, dy = e.changedTouches[0].screenY - ty; if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) (vOn() ? (dx < 0 ? sigR() : antR()) : (dx < 0 ? sig() : ant())); }, { passive: true });
   area.addEventListener('click', e => {
     if (e.target.closest('.dpanel')) return; const w = area.clientWidth, x = e.clientX - area.getBoundingClientRect().left;
-    if (Date.now() - ult < 300) { area.classList.toggle('zoom2'); ult = 0; return; } ult = Date.now();
-    setTimeout(() => { if (ult && Date.now() - ult >= 280) { ult = 0; if (area.classList.contains('zoom2')) return; if (x < w * .3) ant(); else if (x > w * .7) sig(); } }, 300);
+    if (!vOn() && Date.now() - ult < 300) { area.classList.toggle('zoom2'); ult = 0; return; } ult = Date.now();
+    setTimeout(() => { if (ult && Date.now() - ult >= 280) { ult = 0; if (area.classList.contains('zoom2')) return; if (vOn()) { if (x < w * .3) antR(); else sigR(); } else if (x < w * .3) ant(); else if (x > w * .7) sig(); } }, 300);
   });
   const marks = () => (b.marks = b.marks || []), pintaMark = () => $('#cMark', root).setAttribute('aria-pressed', String(marks().some(m => m.pg === pag)));
   $('#cMark', root).onclick = async () => { if (marks().some(m => m.pg === pag)) { b.marks = marks().filter(m => m.pg !== pag); toast('Marcador quitado'); } else { marks().push({ pg: pag, pct: Math.round(pag / n * 100), t: Date.now() }); toast('Página marcada'); } await persistBook(b); pintaMark(); };
   const panel = $('#cPanel', root);
   $('#cOpt', root).onclick = () => {
     if (!panel.hidden) { panel.hidden = true; return; } panel.hidden = false;
-    panel.innerHTML = `<h3>Ajustes</h3><div class="opts"><label class="chk"><input type="checkbox" id="c-dos" ${prefs.dos ? 'checked' : ''}> Doble página (pantalla ancha)</label><label class="chk"><input type="checkbox" id="c-man" ${prefs.manga ? 'checked' : ''}> Lectura estilo manga (de derecha a izquierda)</label><label>Ajustar a<select id="c-aj"><option value="ancho" ${prefs.ajuste !== 'alto' ? 'selected' : ''}>El ancho</option><option value="alto" ${prefs.ajuste === 'alto' ? 'selected' : ''}>El alto</option></select></label><div class="small">Toca dos veces la página para acercarla.</div>${marks().length ? `<h3 style="margin-top:10px">Marcadores</h3>${marks().map(m => `<a data-pg="${m.pg}">Página ${m.pg}</a>`).join('')}` : ''}</div>`;
+    panel.innerHTML = `<h3>Ajustes</h3><div class="opts"><label class="chk"><input type="checkbox" id="c-dos" ${prefs.dos ? 'checked' : ''}> Doble página (pantalla ancha)</label><label class="chk"><input type="checkbox" id="c-vin" ${prefs.vineta ? 'checked' : ''}> Modo viñeta (acerca cada recuadro)</label><label class="chk"><input type="checkbox" id="c-man" ${prefs.manga ? 'checked' : ''}> Lectura estilo manga (de derecha a izquierda)</label><label>Ajustar a<select id="c-aj"><option value="ancho" ${prefs.ajuste !== 'alto' ? 'selected' : ''}>El ancho</option><option value="alto" ${prefs.ajuste === 'alto' ? 'selected' : ''}>El alto</option></select></label><div class="small">Toca dos veces la página para acercarla.</div>${marks().length ? `<h3 style="margin-top:10px">Marcadores</h3>${marks().map(m => `<a data-pg="${m.pg}">Página ${m.pg}</a>`).join('')}` : ''}</div>`;
+    $('#c-vin', panel).onchange = e => { setPref('vineta', e.target.checked); dibuja(); toast(e.target.checked ? 'Toca para pasar de una viñeta a la siguiente' : 'Modo viñeta apagado'); };
     $('#c-dos', panel).onchange = e => { setPref('dos', e.target.checked); dibuja(); }; $('#c-man', panel).onchange = e => { setPref('manga', e.target.checked); dibuja(); }; $('#c-aj', panel).onchange = e => { setPref('ajuste', e.target.value); dibuja(); };
     panel.querySelectorAll('[data-pg]').forEach(a => a.onclick = () => { ir(+a.dataset.pg); panel.hidden = true; });
   };

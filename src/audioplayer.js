@@ -1,6 +1,6 @@
 // Reproductor de audiolibros: capítulos, velocidad, temporizador para dormir, marcadores, y sigue sonando con la pantalla apagada en Android.
 import { byId, getFile, setStatus, persistBook, addTime, emit, coverUrl } from './state.js';
-import { $, $$, esc, ic, toast } from './ui.js';
+import { $, $$, esc, ic, toast, openSheet, closeSheet } from './ui.js';
 import { A } from './native.js';
 
 const RATES = [1, 1.25, 1.5, 1.75, 2, 0.85];
@@ -22,10 +22,10 @@ export async function openAudio(id) {
   root.innerHTML = `<div class="dbar"><button class="iconbtn" id="aBack" aria-label="Volver">${ic('back')}</button><div class="ti"><b>${esc(b.t)}</b><span id="aLoc"></span></div><button class="iconbtn" id="aMark" aria-label="Agregar marcador">${ic('bookmark')}</button></div>
     <div class="abody"><div class="acov" style="--c1:${b.c1 || '#2F6F8A'};${cu ? `background-image:url('${cu}')` : ''}">${cu ? '' : `<span>${esc(b.t)}</span>`}</div>
       <div class="acap" id="aCap"></div>
-      <div class="ascrub"><input type="range" id="aSc" min="0" max="${Math.max(1, Math.round(total))}" value="0" step="1" aria-label="Posición"><div class="at"><span id="aT1">0:00</span><span id="aT2">-0:00</span></div></div>
-      <div class="actr"><button class="iconbtn big" id="aPrev" aria-label="Capítulo anterior">${ic('left')}</button><button class="iconbtn big" id="aB" aria-label="Retroceder 15 segundos">−15</button><button class="iconbtn play" id="aPlay" aria-label="Reproducir">${ic('play')}</button><button class="iconbtn big" id="aF" aria-label="Adelantar 15 segundos">+15</button><button class="iconbtn big" id="aNext" aria-label="Capítulo siguiente">${ic('right')}</button></div>
+      <div class="ascrub"><div class="amk" id="aMk"></div><input type="range" id="aSc" min="0" max="${Math.max(1, Math.round(total))}" value="0" step="1" aria-label="Posición"><div class="at"><span id="aT1">0:00</span><span id="aT2">-0:00</span></div></div>
+      <div class="actr"><button class="iconbtn big" id="aPrev" aria-label="Capítulo anterior">${ic('left')}</button><button class="iconbtn big sm" id="aB30" aria-label="Retroceder 30 segundos">−30</button><button class="iconbtn big sm" id="aB" aria-label="Retroceder 15 segundos">−15</button><button class="iconbtn play" id="aPlay" aria-label="Reproducir">${ic('play')}</button><button class="iconbtn big sm" id="aF" aria-label="Adelantar 15 segundos">+15</button><button class="iconbtn big sm" id="aF30" aria-label="Adelantar 30 segundos">+30</button><button class="iconbtn big" id="aNext" aria-label="Capítulo siguiente">${ic('right')}</button></div>
       <div class="arow"><button class="lchip" id="aRate">Velocidad <b>1x</b></button><button class="lchip" id="aSleep">Dormir <b>Apagado</b></button></div>
-      <div class="alist" id="aList"></div></div>`;
+      <div class="alist" id="aList"></div><div id="aMarks"></div></div>`;
   document.body.appendChild(root);
   const au = new Audio(); au.preload = 'auto'; const urls = []; let pi = Math.min(pistas.length - 1, b.ap?.pi || 0), ri = 0, si = 0, sleepAt = 0, sleepFin = false, acc = 0;
   const cargaPista = (i, t) => { urls.forEach(u => URL.revokeObjectURL(u)); urls.length = 0; const u = URL.createObjectURL(pistas[i].blob); urls.push(u); pi = i; au.src = u; au.onloadedmetadata = () => { try { au.currentTime = Math.min(t || 0, au.duration || 0); } catch { } au.playbackRate = RATES[ri]; au.onloadedmetadata = null; if (reanuda) { reanuda = false; au.play().catch(() => { }); } }; };
@@ -45,7 +45,19 @@ export async function openAudio(id) {
   $('#aList', root).innerHTML = caps.length > 1 ? caps.map((c, i) => `<div data-k="${i}"><span>${esc(c.n)}</span><small>${fm(c.t)}</small></div>`).join('') : '';
   $$('#aList [data-k]', root).forEach(d => d.onclick = () => { irA(caps[+d.dataset.k].t); au.play().catch(() => { }); });
   const marks = () => (b.abm = b.abm || []);
-  $('#aMark', root).onclick = async () => { marks().push({ t: Math.round(pos()), at: Date.now() }); await persistBook(b); toast(`Marcador en ${fm(pos())}`); };
+  const pintaMarks = () => {
+    const mk = marks().slice().sort((x, y) => x.t - y.t);
+    $('#aMk', root).innerHTML = mk.map(m => `<i style="left:${m.t / Math.max(1, total) * 100}%"></i>`).join('');
+    $('#aMarks', root).innerHTML = mk.length ? `<div class="alb">Marcadores</div>${mk.map(m => `<div class="amr" data-t="${m.t}"><span class="tn">${fm(m.t)}</span><span class="an">${esc(m.n || 'Sin nota')}</span><button data-e="${m.at}" aria-label="Editar nota">${ic('edit')}</button><button data-d="${m.at}" aria-label="Borrar marcador">${ic('x')}</button></div>`).join('')}` : '';
+    $$('#aMarks .amr', root).forEach(r => r.onclick = e => { const ed = e.target.closest('[data-e]'), de = e.target.closest('[data-d]'); if (ed) return notaMarca(+ed.dataset.e); if (de) { b.abm = marks().filter(x => x.at !== +de.dataset.d); persistBook(b); return pintaMarks(); } irA(+r.dataset.t); });
+  };
+  const notaMarca = at => {
+    const m = marks().find(x => x.at === at); if (!m) return;
+    const o = openSheet(`<h3>Marcador en ${fm(m.t)}</h3><div class="sub">Una línea para acordarte de qué trataba (opcional).</div><input id="amn" maxlength="120" value="${esc(m.n || '')}" placeholder="Ej. aquí aparece el barón" style="width:100%;margin-top:12px"><div class="row" style="margin-top:14px"><button class="btn" id="ams">Guardar</button></div>`);
+    $('#ams', o).onclick = async () => { m.n = $('#amn', o).value.trim(); await persistBook(b); closeSheet(); pintaMarks(); }; setTimeout(() => $('#amn', o)?.focus(), 200);
+  };
+  $('#aMark', root).onclick = async () => { const m = { t: Math.round(pos()), at: Date.now() }; marks().push(m); await persistBook(b); toast(`Marcador en ${fm(pos())}`); pintaMarks(); notaMarca(m.at); };
+  pintaMarks();
 
   const estado = () => { try { A?.lecturaEstado && A.lecturaEstado(true, au.paused, b.t, caps[capDe(pos())]?.n || ''); } catch { } };
   $('#aPlay', root).onclick = () => { au.paused ? au.play().catch(() => toast('No pude reproducir este archivo')) : au.pause(); };
@@ -53,8 +65,9 @@ export async function openAudio(id) {
   au.onended = () => { if (pi < pistas.length - 1) { reanuda = true; cargaPista(pi + 1, 0); } else { au.pause(); fin(); } };
   au.ontimeupdate = () => {
     pinta();
-    if (sleepAt && Date.now() >= sleepAt) { au.pause(); sleepAt = 0; si = 0; $('#aSleep b', root).textContent = 'Apagado'; toast('Pausa: hora de dormir'); }
-    if (sleepFin && capDe(pos()) !== finCap) { au.pause(); sleepFin = false; si = 0; $('#aSleep b', root).textContent = 'Apagado'; }
+    { let rem = 99; if (sleepAt) rem = (sleepAt - Date.now()) / 1000; else if (sleepFin && caps[finCap + 1]) rem = (caps[finCap + 1].t - pos()) / Math.max(.5, au.playbackRate); au.volume = rem < 20 ? Math.max(.05, rem / 20) : 1; }
+    if (sleepAt && Date.now() >= sleepAt) { au.pause(); au.volume = 1; sleepAt = 0; si = 0; $('#aSleep b', root).textContent = 'Apagado'; toast('Pausa: hora de dormir'); }
+    if (sleepFin && capDe(pos()) !== finCap) { au.pause(); au.volume = 1; sleepFin = false; si = 0; $('#aSleep b', root).textContent = 'Apagado'; }
   };
   let finCap = 0, terminado = b.s === 'leido';
   async function fin() { if (!terminado) { terminado = true; await setStatus(b, 'leido'); toast('¡Terminaste el audiolibro!'); } }
@@ -62,6 +75,7 @@ export async function openAudio(id) {
   const gI = setInterval(() => { if (!au.paused) { guarda(); acc += 10; addTime(b.id, 10); } }, 10000);
   $('#aSc', root).oninput = e => irA(+e.target.value);
   $('#aB', root).onclick = () => irA(pos() - 15); $('#aF', root).onclick = () => irA(pos() + 15);
+  $('#aB30', root).onclick = () => irA(pos() - 30); $('#aF30', root).onclick = () => irA(pos() + 30);
   $('#aPrev', root).onclick = () => { const k = capDe(pos()); irA(pos() - caps[k].t > 4 ? caps[k].t : (caps[Math.max(0, k - 1)]?.t || 0)); };
   $('#aNext', root).onclick = () => { const k = capDe(pos()); if (caps[k + 1]) irA(caps[k + 1].t); };
   $('#aRate', root).onclick = () => { ri = (ri + 1) % RATES.length; au.playbackRate = RATES[ri]; $('#aRate b', root).textContent = String(RATES[ri]).replace('.', ',') + 'x'; };

@@ -765,3 +765,37 @@ html[data-calma="si"] *,html[data-calma="si"] *::before,html[data-calma="si"] *:
 
 .heartx{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-size:78px;color:#E07A70;z-index:6;pointer-events:none;animation:heartx .7s both}
 @keyframes heartx{0%{transform:translate(-50%,-50%) scale(.3);opacity:0}30%{transform:translate(-50%,-50%) scale(1.1);opacity:1}100%{transform:translate(-50%,-80%) scale(1);opacity:0}}
+
+/* ---- Géneros en gráfico ---- */
+.gdon{display:flex;gap:16px;align-items:center}.donut9{width:112px;height:112px;border-radius:50%;display:grid;place-items:center;flex:none;transition:background .3s}
+.donut9 i{width:74px;height:74px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font:400 24px var(--f-display);font-style:normal;text-align:center;line-height:1.05}.donut9 small{display:block;font:500 9.5px var(--f-body);color:var(--muted)}
+.gleg{flex:1;display:grid;gap:3px;min-width:0}.glg{display:flex;align-items:center;gap:7px;border:0;background:none;color:var(--ink);font:500 12.5px var(--f-body);padding:4px 6px;border-radius:8px;text-align:left}.glg i{width:10px;height:10px;border-radius:50%;flex:none}.glg span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.glg.on{background:var(--surface)}
+
+.pchips{display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}.pchips .chip b{color:var(--accent)}
+
+/* ---- Bienvenida ---- */
+#tour{position:fixed;inset:0;z-index:90}
+.tspot{position:fixed;box-shadow:0 0 0 9999px rgba(4,10,12,.68);outline:2px solid var(--accent);outline-offset:3px;transition:all .3s;animation:tpulse 1.6s infinite}
+@keyframes tpulse{0%,100%{outline-offset:3px}50%{outline-offset:7px}}
+.ttip{position:fixed;background:var(--surface);color:var(--ink);border-radius:20px;padding:16px;box-shadow:0 24px 44px -14px rgba(0,0,0,.7);display:grid;gap:8px}
+.ttip b{font:400 18px var(--f-display)}.ttip p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.45}
+.trow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px}
+.tdots{display:flex;gap:5px}.tdots i{width:7px;height:7px;border-radius:50%;background:var(--line)}.tdots i.on{width:18px;border-radius:5px;background:var(--accent)}
+@media (prefers-reduced-motion:reduce){.tspot{animation:none;transition:none}}
+/* ---- Modo viaje y avisos ---- */
+.vjres{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;gap:8px}
+.vjr9{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:13px}.vjr9 b{display:block;font-weight:600}.vjr9 input{accent-color:var(--accent);width:18px;height:18px}
+.vcov{width:22px;height:32px;border-radius:2px 4px 4px 2px;background:var(--c1);flex:none;box-shadow:inset 2px 0 0 rgba(0,0,0,.25)}
+.bdg9{font:600 10.5px var(--f-body);padding:3px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}.bdg9.ok{color:var(--accent);border-color:var(--accent)}
+.okb9{text-align:center;padding:12px;border-radius:14px;background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--accent);font-weight:700}
+.notif9{display:grid;gap:2px;padding:12px;border-radius:16px;background:var(--surface);border:1px solid var(--line);margin-top:10px;font-size:13px}.notif9 span{color:var(--muted)}
+
+/* ---- Audiolibros: saltos de 30, marcadores con nota ---- */
+.actr .iconbtn.sm{width:38px;height:38px;font-size:11px}
+.ascrub{position:relative}.amk{position:absolute;left:0;right:0;top:-2px;height:8px;pointer-events:none}.amk i{position:absolute;top:0;width:7px;height:7px;border-radius:50%;background:#E4B861;transform:translateX(-50%)}
+.alb{font:700 11px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:16px 0 6px}
+.amr{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:12px;background:var(--surface2);font-size:13px;margin-bottom:6px;cursor:pointer}.amr .an{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.amr button{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;color:var(--muted)}
+
+/* ---- Cómic: modo viñeta ---- */
+.comic.vinm{overflow:hidden!important}.cimgs.vin{position:relative;width:100%;height:100%}.cimgs.vin img{transition:transform .38s cubic-bezier(.3,.7,.2,1)}
+@media (prefers-reduced-motion:reduce){.cimgs.vin img{transition:none}}

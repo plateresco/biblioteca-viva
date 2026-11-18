@@ -546,6 +546,7 @@ public class MainActivity extends Activity {
 
         /* Recordatorio diario */
         @JavascriptInterface public void programarRecordatorio(boolean on, int hora, int minuto) { Recordatorio.configurar(MainActivity.this, on, hora, minuto); }
+        @JavascriptInterface public void avisos(String json) { Recordatorio.contexto(MainActivity.this, json); }
         @JavascriptInterface public void marcarLeidoHoy(String iso) { Recordatorio.leidoHoy(MainActivity.this, iso); }
         @JavascriptInterface public void pedirPermisoNotificaciones() {
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)

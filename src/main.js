@@ -167,6 +167,7 @@ window.__abrirArchivo = async (url, nombre) => {
 };
 if (window.AndroidApp) setTimeout(avisarSiHay, 4000);
 setTimeout(() => import('./tanda5.js').then(m => m.avisarNovedades()), 2500);
+setTimeout(() => import('./tanda9.js').then(m => m.tour(false)), 1800);
 if (window.AndroidApp) setTimeout(() => import('./tanda5.js').then(m => m.aplicarFondoDiario()), 6000);
 if (window.AndroidApp) import('./widgets.js').then(w => w.iniciarWidgets());
 // Atajos al mantener pulsado el ícono, y botones de los widgets
@@ -175,6 +176,8 @@ window.__atajo = a => {
   if (a === 'continuar') { const c = currentBook(); if (c?.hasFile) ctx.openReader(c.id); else if (c) ctx.openSheet(c.id); else go('lib'); }
   else if (a === 'agregar') { go('lib'); import('./sheets.js').then(m => m.openAdd()); }
   else if (a === 'escanear') { go('lib'); import('./sheets.js').then(m => m.openAdd('isbn')); }
+  else if (a === 'prestamos') { import('./more.js').then(m => { m.openMore('colecciones'); go('more'); }); }
+  else if (a === 'plan') { import('./more.js').then(m => { m.openMore('plan'); go('more'); }); }
   else if (a === 'pagina') { go('fr'); setTimeout(() => import('./frases.js').then(m => m.escanearPagina && m.escanearPagina()), 300); }
 };
 

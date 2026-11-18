@@ -88,6 +88,10 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_racha_info" />
         </receiver>
 
+        <receiver android:name=".MetaWidget" android:exported="false" android:label="Meta del día">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_meta_info" />
+        </receiver>
         <receiver android:name=".RecordatorioReceiver" android:exported="false" />
         <receiver android:name=".InstaladorReceiver" android:exported="false" />
         <receiver android:name=".ArranqueReceiver" android:exported="true">

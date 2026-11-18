@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root3"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:gravity="center"
+    android:background="@drawable/widget_fondo">
+    <ImageView
+        android:id="@+id/w_anillo"
+        android:layout_width="84dp" android:layout_height="84dp"
+        android:contentDescription="Meta de hoy" />
+    <TextView
+        android:id="@+id/w_meta_t"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:textColor="#EDE6D6" android:textSize="11sp" android:text="Meta de hoy" />
+</LinearLayout>
