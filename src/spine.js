@@ -1,4 +1,4 @@
-import { ST, coverUrl, spineGeom } from './state.js';
+import { ST, coverUrl, spineGeom, modeloDe } from './state.js';
 import { esc } from './ui.js';
 
 const hash = id => (id * 2654435761 >>> 0);
@@ -48,7 +48,7 @@ function lum(hex) {
 
 // Todo lo que depende del libro se calcula una sola vez y se guarda.
 function layout(b) {
-  const g = spineGeom(b), key = `${b.id}|${b.t}|${b.a}|${g.w}|${g.h}|${b.c1}|${!!b.cover}`;
+  const g = spineGeom(b), mod = modeloDe(b), key = `${b.id}|${b.t}|${b.a}|${g.w}|${g.h}|${b.c1}|${!!b.cover}|${mod}|${b.s === 'leido'}`;
   let c = cache.get(key); if (c) return c;
   const f = FONTS[hash(b.id) % 4], light = lum(b.c1) >= .42, fin = light ? 'ink' : 'foil';
   const top = 17, bot = 26, L = g.h - top - bot, T = g.w - 8;
@@ -66,7 +66,7 @@ function layout(b) {
     if (w10(last, AUTH) * s / 10 + AUTH.track * s * Math.max(0, last.length - 1) <= La) aut = `<span class="aut" style="top:${top + Lt + 8}px;height:${La}px;font-size:${s.toFixed(1)}px">${esc(last)}</span>`;
   }
   const font = `font-family:${f.fam},Georgia,serif;font-weight:${f.w};font-style:${f.style || 'normal'};font-size:${r.size.toFixed(2)}px;letter-spacing:${f.track}em;${f.caps ? 'text-transform:uppercase;' : ''}`;
-  c = { cls: fin + (b.cover ? ' scr' : ''), th: Lt, tt: top, html: `<div class="ttl" style="top:${top}px;height:${Lt}px;${font}">${r.lines.map(esc).join('<br>')}</div>${aut}` };
+  c = { cls: fin + (b.cover ? ' scr' : '') + ' m-' + mod + (b.s === 'leido' ? ' gast' : ''), th: Lt, tt: top, html: `<div class="ttl" style="top:${top}px;height:${Lt}px;${font}">${r.lines.map(esc).join('<br>')}</div>${aut}` };
   cache.set(key, c);
   return c;
 }

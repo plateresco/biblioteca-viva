@@ -139,6 +139,7 @@ const PAGES = {
       <div class="card"><h3>Madera de la estantería</h3><div class="dotrow" id="d-wood">${MADERAS.map(([k, n, c]) => `<button class="t" data-w="${k || ''}" aria-pressed="${(P.wood || null) === k}">${c ? `<i style="display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;background:${c[0]};vertical-align:-1px"></i>` : ''}${n}</button>`).join('')}</div></div>
       <div class="card"><h3>Estilo de los lomos</h3><div class="dotrow" id="d-spine">${LOMOS.map(([k, n]) => `<button class="t" data-s="${k}" aria-pressed="${P.spine === k}">${n}</button>`).join('')}</div></div>
       <div class="card"><h3>Letra de los títulos</h3><div class="dotrow" id="d-font">${FUENTES.map(([k, n, f]) => `<button class="t" data-f="${k}" style="font-family:${f}" aria-pressed="${P.titleFont === k}">${n}</button>`).join('')}</div></div>
+      <div class="card"><h3>Lámpara de la sala</h3><div class="sub">Una luz cálida sobre la estantería. En automático se enciende de noche.</div><div class="dotrow" id="d-lamp"><button class="t" data-l="auto" aria-pressed="${(P.lampara || 'auto') === 'auto'}">Automática</button><button class="t" data-l="si" aria-pressed="${P.lampara === 'si'}">Encendida</button><button class="t" data-l="no" aria-pressed="${P.lampara === 'no'}">Apagada</button></div></div>
       <div class="card"><h3>Densidad</h3><div class="dotrow" id="d-dens"><button class="t" data-d="comoda" aria-pressed="${P.dens !== 'compacta'}">Cómoda</button><button class="t" data-d="compacta" aria-pressed="${P.dens === 'compacta'}">Compacta</button></div></div>
       <div class="card"><h3>Pantalla Hoy</h3><div class="sub">Cambia el orden de las tarjetas o escóndelas.</div><div class="hoyord" id="d-hoy"></div></div>`;
     const grp = (id, fn) => $(id, b).addEventListener('click', e => { const x = e.target.closest('button'); if (!x) return; fn(x); redraw(); });
@@ -146,6 +147,7 @@ const PAGES = {
     grp('#d-wood', x => setPref('wood', x.dataset.w || null));
     grp('#d-spine', x => setPref('spine', x.dataset.s));
     grp('#d-font', x => setPref('titleFont', x.dataset.f));
+    grp('#d-lamp', x => setPref('lampara', x.dataset.l));
     grp('#d-dens', x => setPref('dens', x.dataset.d));
     const ord = () => { const o = [...(P.hoyOrder || [])]; HOY_CARDS.forEach(([k]) => { if (!o.includes(k)) o.push(k); }); return o.filter(k => HOY_CARDS.some(c => c[0] === k)); };
     const dibujaHoy = () => {

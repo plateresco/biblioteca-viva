@@ -1,6 +1,6 @@
 // Preferencias de este dispositivo (tema, vista, metas, recordatorio, tamaño de texto).
 const KEY = 'bv-prefs';
-const DEF = { theme: 'auto', view: 'shelf', goalDay: 20, goalYear: 12, reminder: { on: false, time: '21:30' }, textScale: 100, accent: null, wood: null, spine: 'cuero', titleFont: 'young', dens: 'comoda', hoyOrder: [], hoyHide: [] };
+const DEF = { theme: 'auto', view: 'shelf', goalDay: 20, goalYear: 12, reminder: { on: false, time: '21:30' }, textScale: 100, accent: null, wood: null, spine: 'cuero', titleFont: 'young', dens: 'comoda', lampara: 'auto', hoyOrder: [], hoyHide: [] };
 let stored = {};
 try { stored = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { }
 export const P = { ...DEF, ...stored, reminder: { ...DEF.reminder, ...(stored.reminder || {}) } };
@@ -23,6 +23,8 @@ export const MADERAS = [[null, 'Según el tema', null], ['roble', 'Roble', ['#B6
 export const LOMOS = [['cuero', 'Cuero y oro'], ['tela', 'Tela'], ['min', 'Minimalista']];
 export const FUENTES = [['young', 'Young Serif', "'Young Serif',Georgia,serif"], ['news', 'Newsreader', "'Newsreader',Georgia,serif"], ['fig', 'Figtree', "'Figtree',system-ui,sans-serif"]];
 const luz = h => (parseInt(h.slice(1, 3), 16) * .299 + parseInt(h.slice(3, 5), 16) * .587 + parseInt(h.slice(5, 7), 16) * .114) / 255;
+// La lámpara se enciende sola de noche (19:00 a 6:00), salvo que la fijes encendida o apagada.
+export const lamparaOn = () => P.lampara === 'si' || (P.lampara !== 'no' && (new Date().getHours() >= 19 || new Date().getHours() < 6));
 export function applyPrefs() {
   const r = document.documentElement;
   const set = (k, v) => v == null ? r.style.removeProperty(k) : r.style.setProperty(k, v);
@@ -32,6 +34,7 @@ export function applyPrefs() {
   const w = MADERAS.find(m => m[0] === P.wood)?.[2];
   set('--wood1', w ? w[0] : null); set('--wood2', w ? w[1] : null); set('--r-wood1', w ? w[0] : null); set('--r-wood2', w ? w[1] : null);
   set('--f-display', FUENTES.find(f => f[0] === P.titleFont)?.[2] || null);
+  r.dataset.lampara = lamparaOn() ? 'si' : 'no';
   r.dataset.spine = P.spine || 'cuero'; r.dataset.dens = P.dens || 'comoda';
   if (P.theme === 'auto') r.removeAttribute('data-theme'); else r.dataset.theme = P.theme;
   r.style.setProperty('--ts', P.textScale / 100);
@@ -40,3 +43,4 @@ export function applyPrefs() {
   setTimeout(() => import('./native.js').then(n => n.pintarBarras()), 30);
 }
 applyPrefs();
+setInterval(() => { document.documentElement.dataset.lampara = lamparaOn() ? 'si' : 'no'; }, 600000);

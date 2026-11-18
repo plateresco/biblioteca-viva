@@ -436,3 +436,103 @@ html[data-dens="compacta"] .view{gap:10px}
 
 .chk2{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);margin-top:8px}
 .bar2{height:6px;border-radius:6px;background:var(--line);overflow:hidden}.bar2 i{display:block;height:100%;background:var(--accent);transition:width .25s}
+
+/* =====================================================================
+   Rediseño: sistema (elevación, movimiento), modelos de libro, sala, Hoy, lector
+   ===================================================================== */
+:root{
+  --e1:0 1px 0 rgba(0,0,0,.06);
+  --e2:0 6px 14px -6px rgba(0,0,0,.35);
+  --e3:0 18px 30px -10px rgba(0,0,0,.45);
+  --t-fast:120ms;--t-mid:240ms;--t-slow:420ms;--ease:cubic-bezier(.2,.8,.2,1);
+}
+.hoy .card,.card{box-shadow:var(--e1)}
+.sheet{box-shadow:var(--e3)}
+#toast{box-shadow:var(--e3)}
+.savebar,.brtip{box-shadow:var(--e2)}
+.btn,.chip,.iconbtn,.go,.cchip,.opt{transition:background var(--t-fast) var(--ease),transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.btn:active,.go:active,.iconbtn:active,.chip:active{transform:scale(.97)}
+.skel{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--line),var(--surface2),var(--line));background-size:200% 100%;animation:skl 1.4s linear infinite}
+@keyframes skl{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+
+/* ---------- Modelos de lomo (según el formato) ---------- */
+.spine.m-dura{box-shadow:0 0 0 1px rgba(0,0,0,.35),inset 0 -6px 8px rgba(0,0,0,.25),inset 0 8px 8px rgba(255,255,255,.07)}
+.spine.m-tela{
+  background-image:linear-gradient(100deg,transparent calc(var(--shx) - 12%),rgba(255,255,255,.38) var(--shx),transparent calc(var(--shx) + 12%)),repeating-linear-gradient(0deg,rgba(255,255,255,.08) 0 1px,transparent 1px 3px),linear-gradient(transparent,transparent),linear-gradient(rgba(255,255,255,.4),rgba(255,255,255,.4)),linear-gradient(rgba(255,255,255,.4),rgba(255,255,255,.4)),repeating-linear-gradient(90deg,#f1e8d0 0 2px,var(--c2) 2px 4px),repeating-linear-gradient(90deg,#f1e8d0 0 2px,var(--c2) 2px 4px),linear-gradient(90deg,rgba(0,0,0,.4),rgba(255,255,255,.14) 14%,rgba(255,255,255,0) 42%,rgba(0,0,0,.4)),var(--art);
+  background-size:100% 100%,100% 100%,100% 100%,100% 1px,100% 1px,100% 6px,100% 6px,100% 100%,auto 100%;
+  background-position:0 0,0 0,0 0,0 12px,0 16px,0 0,0 100%,0 0,left top}
+.spine.m-rus{border-radius:1px 3px 0 0;
+  background-image:linear-gradient(100deg,transparent calc(var(--shx) - 12%),rgba(255,255,255,.22) var(--shx),transparent calc(var(--shx) + 12%)),var(--noise-a),linear-gradient(transparent,transparent),linear-gradient(transparent,transparent),linear-gradient(transparent,transparent),linear-gradient(transparent,transparent),repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0 1px,transparent 1px 4px),linear-gradient(90deg,rgba(0,0,0,.3),rgba(255,255,255,.1) 14%,rgba(0,0,0,.02) 50%,rgba(0,0,0,.3)),var(--art);
+  background-size:100% 100%,90px 90px,100% 100%,100% 2px,100% 2px,100% 5px,100% 26px,100% 100%,auto 100%;
+  background-position:0 0,0 0,0 0,0 11px,0 15px,0 0,0 100%,0 0,left top;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+.spine.m-rus .ttl,.bk .f-sp .spine.m-rus .ttl{background:rgba(255,255,255,.93);color:#1d1d1d!important;text-shadow:none!important;padding:3px 2px;border-radius:1px;filter:none}
+.spine.m-rus .aut{color:#fff!important;text-shadow:0 1px 1px rgba(0,0,0,.5)!important}
+.spine.m-bol{border-radius:1px 2px 0 0;
+  background-image:linear-gradient(100deg,transparent calc(var(--shx) - 12%),rgba(255,255,255,.3) var(--shx),transparent calc(var(--shx) + 12%)),var(--noise-a),linear-gradient(transparent,transparent),linear-gradient(rgba(255,255,255,.9),rgba(255,255,255,.9)),linear-gradient(transparent,transparent),linear-gradient(transparent,transparent),linear-gradient(transparent,transparent),linear-gradient(90deg,rgba(0,0,0,.3),rgba(255,255,255,.14) 20%,rgba(0,0,0,.28)),var(--art);
+  background-size:100% 100%,90px 90px,100% 100%,100% 4px,100% 2px,100% 5px,100% 5px,100% 100%,auto 100%;
+  background-position:0 0,0 0,0 0,0 6px,0 15px,0 0,0 100%,0 0,left top}
+.spine.m-bol .ttl,.spine.m-bol .aut{color:#fff!important;text-shadow:0 1px 0 rgba(0,0,0,.55)!important;font-weight:700}
+.spine.m-aud{background-color:#14171a;border-radius:2px;box-shadow:0 0 0 1px #3a3e42,inset 0 0 0 1px rgba(255,255,255,.04);
+  background-image:linear-gradient(100deg,transparent calc(var(--shx) - 12%),rgba(255,255,255,.2) var(--shx),transparent calc(var(--shx) + 12%)),linear-gradient(transparent,transparent),radial-gradient(circle at 50% calc(100% - 12px),transparent 3px,#aab 3.2px,#aab 4.6px,transparent 4.8px),linear-gradient(transparent,transparent),linear-gradient(transparent,transparent),linear-gradient(transparent,transparent),linear-gradient(transparent,transparent),linear-gradient(90deg,rgba(0,0,0,.5),rgba(255,255,255,.1) 18%,rgba(0,0,0,.4)),linear-gradient(transparent,transparent);
+  background-size:100% 100%,100% 100%,100% 100%,100% 2px,100% 2px,100% 5px,100% 5px,100% 100%,auto 100%}
+.spine.m-aud .ttl,.bk .f-sp .spine.m-aud .ttl{background:var(--c1);color:#fff!important;text-shadow:none!important;padding:3px 2px;border-radius:2px;filter:none}
+.spine.m-aud .aut{color:#cfd3d6!important;text-shadow:none!important}
+.spine.m-epub{
+  background-image:linear-gradient(100deg,transparent calc(var(--shx) - 12%),rgba(255,255,255,.3) var(--shx),transparent calc(var(--shx) + 12%)),var(--noise-a),radial-gradient(circle at 50% calc(100% - 9px),#62B7AB 2.6px,transparent 3.2px),linear-gradient(rgba(98,183,171,.75),rgba(98,183,171,.75)),linear-gradient(#1b2428,#1b2428),linear-gradient(transparent,transparent),linear-gradient(transparent,transparent),linear-gradient(90deg,rgba(0,0,0,.35),rgba(255,255,255,.14) 16%,rgba(0,0,0,.3)),var(--art);
+  background-size:100% 100%,90px 90px,100% 100%,100% 1px,100% 20px,100% 5px,100% 5px,100% 100%,auto 100%;
+  background-position:0 0,0 0,0 0,0 calc(100% - 20px),0 100%,0 0,0 100%,0 0,left top}
+.spine.gast{box-shadow:0 0 0 1px rgba(0,0,0,.3),inset 0 0 12px rgba(0,0,0,.22),inset 2px 0 0 rgba(255,255,255,.05)}
+.spine.lean{transform:rotate(-8deg);transform-origin:bottom left;margin-right:12px}
+
+/* ---------- La sala: madera con veta y lámpara ---------- */
+.board{background:repeating-linear-gradient(92deg,rgba(0,0,0,.09) 0 2px,transparent 2px 7px),linear-gradient(180deg,var(--r-wood1,var(--wood1)),var(--r-wood2,var(--wood2)))}
+html[data-lampara="si"] #v-lib .glow{height:420px;background:radial-gradient(55% 75% at 86% 0,rgba(255,206,120,.34),transparent 72%),radial-gradient(ellipse at 50% 0,var(--r-glow),transparent 70%)}
+html[data-lampara="si"] .shelf{box-shadow:inset 0 22px 26px -22px rgba(255,200,120,.2)}
+html[data-lampara="no"] #v-lib .glow{opacity:.4}
+
+/* ---------- Escena del libro: caras superior e inferior ---------- */
+.bk .f-tp,.bk .f-bt{width:var(--w);height:var(--d);left:0;background:repeating-linear-gradient(90deg,#efe6cf 0 1.5px,#d6caa9 1.5px 3px),#d6caa9;border-radius:1px}
+.bk .f-tp{top:calc(var(--d) / -2);transform:rotateX(90deg)}
+.bk .f-bt{top:calc(var(--h) - var(--d) / 2);transform:rotateX(-90deg)}
+
+/* ---------- Pantallas vacías ---------- */
+svg.vacia{width:120px;height:auto;display:block;margin:0 auto 10px;opacity:.95}
+
+/* ---------- Hoy ---------- */
+.streak{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:99px;background:color-mix(in srgb,#E4B861 18%,transparent);border:1px solid color-mix(in srgb,#E4B861 60%,transparent);color:var(--ink);font-size:13px;font-weight:700}
+.streak svg{width:15px;height:15px;stroke:#E0A23B;fill:rgba(228,184,97,.35)}
+.hoy{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hoy>.card{grid-column:1/-1}
+.hoy>.card.half{grid-column:auto}
+@media (min-width:900px){.hoy{grid-template-columns:repeat(auto-fit,minmax(270px,1fr))}.hoy>.card{grid-column:auto}.hoy>.cont{grid-column:span 2}}
+.hoy .herob{background:radial-gradient(120% 100% at 0% 0%,color-mix(in srgb,#E4B861 20%,transparent),transparent 62%),var(--surface);box-shadow:var(--e2);border-radius:22px;padding:18px}
+.hero3{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center}
+.hero3 .cv3{perspective:420px}
+.rcov.big{width:84px;height:124px;border-radius:2px 7px 7px 2px;display:block;transform:rotateY(-18deg);transform-origin:left center;filter:drop-shadow(10px 12px 8px rgba(0,0,0,.45))}
+.hinfo{display:grid;gap:5px;min-width:0}
+.hinfo h3{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0}
+.hinfo .ht{font:400 19px/1.15 var(--f-display);text-wrap:balance}
+.hinfo .hsub{font-size:12.5px;color:var(--muted)}
+.hinfo .pbar{margin:4px 0}
+.hinfo .go{justify-self:start;margin-top:4px}
+.metaN{font:400 34px/1 var(--f-display);margin:8px 0 10px;font-variant-numeric:tabular-nums}
+.metaN small{font:500 13px var(--f-body);color:var(--muted)}
+.metaN .goalin{width:48px}
+.wbars{display:flex;gap:6px;align-items:flex-end;height:60px;margin-top:10px}
+.wbars span{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;font-size:10.5px;color:var(--muted);height:100%}
+.wbars i{display:block;width:100%;max-width:14px;border-radius:5px;background:var(--line);transition:height var(--t-slow) var(--ease)}
+.wbars i.on{background:var(--accent)}.wbars i.today{outline:2px solid var(--accent);outline-offset:2px}
+.quotec{background:color-mix(in srgb,#E4B861 9%,var(--surface))!important}
+
+/* ---------- Lector: papel con grano, sombra del lomo, marcas de capítulo y carga ---------- */
+#reader[data-theme="paper"] .vwrap::before,#reader[data-theme="sepia"] .vwrap::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;background:var(--noise);opacity:.05;mix-blend-mode:multiply}
+#reader[data-theme="paper"] .vwrap::after,#reader[data-theme="sepia"] .vwrap::after{content:"";position:absolute;top:0;bottom:0;left:0;width:16px;pointer-events:none;z-index:3;background:linear-gradient(90deg,rgba(0,0,0,.12),transparent)}
+.rwrap{position:relative;flex:1;min-width:0;display:flex;align-items:center}
+.rwrap input[type=range]{width:100%;position:relative;z-index:1}
+.rwrap .ticks{position:absolute;left:8px;right:8px;top:50%;height:0;pointer-events:none}
+.rwrap .ticks i{position:absolute;width:2px;height:12px;top:-6px;background:currentColor;opacity:.4;border-radius:1px}
+.rskel{position:absolute;inset:0;padding:48px 26px;display:grid;gap:12px;align-content:start;z-index:2;pointer-events:none}
+.rskel .skel{background:linear-gradient(90deg,rgba(127,127,127,.18),rgba(127,127,127,.08),rgba(127,127,127,.18));background-size:200% 100%}
+
+.rcov.big{position:relative}.rcov.big i{position:absolute;inset:10px 8px;display:grid;place-items:center;text-align:center;font:400 12px/1.2 var(--f-display);font-style:normal;color:#F3E6C2;text-shadow:0 1px 2px rgba(0,0,0,.5);overflow:hidden}

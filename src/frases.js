@@ -1,6 +1,6 @@
 import { S, byId, removeNote, saveNote, coverUrl } from './state.js';
 import { P, setPref } from './prefs.js';
-import { $, $$, esc, ic, toast, openSheet, closeSheet } from './ui.js';
+import { $, $$, esc, ic, toast, openSheet, closeSheet, ilustVacia } from './ui.js';
 import { imgQuote, shareImage } from './share.js';
 import { abrirExportar } from './exportar.js';
 import { abrirRepaso, pendientes } from './repaso.js';
@@ -18,7 +18,7 @@ export function drawFrases(ctx) {
      <input id="qs" type="search" value="${esc(qtext)}" placeholder="Buscar en tus frases" aria-label="Buscar en tus frases">
      ${books.length > 1 ? `<select id="qb" aria-label="Filtrar por libro"><option value="">Todos los libros</option>${books.map(b => `<option value="${b.id}" ${String(b.id) === qbook ? 'selected' : ''}>${esc(b.t)}</option>`).join('')}</select>` : ''}</div>
    <div class="masonry" id="quotes">${f.map(n => card(n)).join('') || `<div class="note">Ninguna frase coincide con tu búsqueda.</div>`}</div>`
-   : `<div class="card onb"><h3>Aún no tienes frases</h3><div class="sub">Mientras lees un EPUB, selecciona un texto y elige un color: queda subrayado y aparece aquí. También puedes escribir frases de libros de papel con «Nueva».</div></div>`}
+   : `<div class="card onb">${ilustVacia()}<h3>Aún no tienes frases</h3><div class="sub">Mientras lees un EPUB, selecciona un texto y elige un color: queda subrayado y aparece aquí. También puedes escribir frases de libros de papel con «Nueva».</div></div>`}
   </div>`;
   function card(n) {
     const b = byId(n.bookId), cu = b && coverUrl(b), c = b?.c1 || '#555';

@@ -132,10 +132,21 @@ export async function saveNote(n) {
 export async function removeNote(id) { await addTomb(S.notes.find(n => n.id === id)?.uid, 'note'); await db.del('notes', id); S.notes = S.notes.filter(n => n.id !== id); emit(); }
 
 // Forma del lomo según el libro: más páginas = más grueso y un poco más alto.
+export const MODELOS = [['', 'Automático (según el formato)'], ['dura', 'Tapa dura'], ['tela', 'Tela'], ['rus', 'Rústica'], ['bol', 'Bolsillo'], ['aud', 'Audiolibro'], ['epub', 'EPUB']];
+// Qué tipo de lomo se dibuja: el que elijas en la ficha o, si no, uno según el formato y las páginas.
+export function modeloDe(b) {
+  if (b.modelo) return b.modelo;
+  if (b.f === 'Audio') return 'aud';
+  if (b.f === 'EPUB') return 'epub';
+  if ((b.p || 200) <= 190) return 'bol';
+  const h = ((b.id || 1) * 2654435761 >>> 0) % 10;
+  return h < 5 ? 'dura' : h < 8 ? 'tela' : 'rus';
+}
 export function spineGeom(b) {
   const p = Math.max(40, b.p || 200), j = (b.id * 2654435761 >>> 0) % 9;           // pequeña variación fija por libro
-  const w = Math.round(Math.min(84, 16 + p * 0.05) + (j % 3) - 1);                  // sin tope práctico: un tomo de 1.200 págs. se nota
-  const h = Math.round(116 + Math.min(p, 1000) / 1000 * 52 + (j % 5) - 2);
+  let w = Math.round(Math.min(84, 16 + p * 0.05) + (j % 3) - 1);                    // sin tope práctico: un tomo de 1.200 págs. se nota
+  let h = Math.round(116 + Math.min(p, 1000) / 1000 * 52 + (j % 5) - 2);
+  if (modeloDe(b) === 'bol') { w = Math.max(15, Math.round(w * .88)); h = Math.round(h * .84); }   // los de bolsillo son más bajos
   return { w, h };
 }
 

@@ -20,7 +20,7 @@ export function bestStreak() {
 // Últimos 7 días, de lunes a domingo de la semana actual.
 export function weekDots() {
   const now = new Date(), wd = (now.getDay() + 6) % 7, days = readDays(), out = [];
-  for (let i = 0; i < 7; i++) { const d = new Date(now); d.setDate(now.getDate() - wd + i); out.push({ on: days.has(iso(d)), today: i === wd, future: i > wd, l: 'LMMJVSD'[i] }); }
+  for (let i = 0; i < 7; i++) { const d = new Date(now); d.setDate(now.getDate() - wd + i); out.push({ on: days.has(iso(d)), pages: pagesOn(iso(d)), today: i === wd, future: i > wd, l: 'LMMJVSD'[i] }); }
   return out;
 }
 // Ritmo: páginas por hora, medido en las sesiones con tiempo registrado (o 30 si aún no hay datos).

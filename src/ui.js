@@ -7,6 +7,7 @@ const P = {
   home: '<path d="M4 11l8-7 8 7v9H4zM10 20v-6h4v6"/>',
   more: '<path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/>',
   bookmark: '<path d="M7 4h10v16l-5-3.5L7 20z"/>',
+  flame: '<path d="M12 3c1 4 5 5 5 10a5 5 0 01-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z"/>',
   grid: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>',
   star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
@@ -79,3 +80,6 @@ export function openSheet(html, { onClose } = {}) {
   return o;
 }
 export function closeSheet() { const o = $('#sheet'); if (o) o.remove(); }
+
+// Ilustración para pantallas vacías: un estante pequeño con tres libros y una planta.
+export const ilustVacia = () => `<svg class="vacia" viewBox="0 0 130 70" aria-hidden="true"><rect x="8" y="56" width="114" height="8" rx="2" fill="#7A5230"/><rect x="8" y="56" width="114" height="2" fill="rgba(255,255,255,.18)"/><rect x="18" y="26" width="12" height="30" rx="2" fill="#2F6F8A"/><rect x="33" y="18" width="10" height="38" rx="2" fill="#8E2F2A"/><rect x="46" y="29" width="14" height="27" rx="2" fill="#C9A24A"/><rect x="64" y="20" width="11" height="36" rx="2" fill="#4E7D55" transform="rotate(9 69 56)"/><path d="M98 56V44c-8-2-10-10-6-18 6 4 9 8 6 18 3-8 10-10 14-12-2 8-6 12-14 12z" fill="#4E7D55"/><rect x="92" y="50" width="16" height="10" rx="2" fill="#B5603A"/></svg>`;

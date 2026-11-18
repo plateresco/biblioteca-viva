@@ -1,5 +1,5 @@
 // Escena 3D de la biblioteca: sacar el libro del estante, mostrar su portada, darle la vuelta y volver a guardarlo.
-import { ST, byId, coverUrl, spineGeom } from './state.js';
+import { S, ST, byId, coverUrl, spineGeom } from './state.js';
 import { $, esc, ic, reduce } from './ui.js';
 import { spineInner, spineStyle, spineStyleClass } from './spine.js';
 
@@ -12,6 +12,7 @@ export const sceneOpen = () => !!sc;
 export function openScene(id, spineEl, ctx) {
   const b = byId(id);
   if (!b || sc) return;
+  S.ui.lastOut = null; document.querySelectorAll('.spine.lean').forEach(x => x.classList.remove('lean'));
   const g = spineGeom(b), app = $('#app').getBoundingClientRect(), W = app.width, H = innerHeight;
   // posición de reposo del lomo (sin el levantado del cursor)
   const prevT = spineEl.style.transition, prevTf = spineEl.style.transform;
@@ -29,7 +30,7 @@ export function openScene(id, spineEl, ctx) {
       <div class="face f-sp"><div class="spine ${spineStyleClass(b)}" style="${spineStyle(b)}">${spineInner(b)}</div></div>
       <div class="face f-cv">${u ? `<img src="${u}" alt="">` : `<span class="ca">${esc(b.f)}</span><span class="cl">${esc(b.t)}</span><span class="ca">${esc(b.a)}</span>`}</div>
       <div class="face f-lf"><span class="ca">Sinopsis</span><p class="syn">${esc(syn)}</p><span class="ca">${b.p} páginas</span></div>
-      <div class="face f-bk"></div></div>
+      <div class="face f-bk"></div><div class="face f-tp"></div><div class="face f-bt"></div></div>
     <div class="info"></div>`;
   document.body.appendChild(root);
   spineEl.style.visibility = 'hidden';
@@ -110,6 +111,7 @@ export function closeScene(instant = false) {
     if (done) return; done = true;
     el.getAnimations().forEach(x => x.cancel());
     spineEl.style.visibility = ''; root.remove(); sc = null;
+    S.ui.lastOut = s.id; spineEl.classList.add('lean');          // el libro queda apoyado, como si acabara de volver
   };
   const closeSibs = () => sibs.forEach(x => x.style.setProperty('--sx', '0px'));
   if (reduce || instant) { closeSibs(); finish(); return; }

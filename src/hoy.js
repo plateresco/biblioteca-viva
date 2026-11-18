@@ -1,6 +1,6 @@
 import { S, ST, byId, coverUrl, addPages, addTime, saveBook, setStatus, today, MES } from './state.js';
 import { P, setPref } from './prefs.js';
-import { $, $$, esc, ic, toast, reduce } from './ui.js';
+import { $, $$, esc, ic, toast, reduce, ilustVacia } from './ui.js';
 import { pagesToday, streak, weekDots, leftText, pace, minutesToday, fmtDur, lastReadOf, daysSince } from './metrics.js';
 import { reminderDue } from './reminder.js';
 import { sugerencias, FILTROS } from './sugerir.js';
@@ -35,17 +35,20 @@ export function drawHoy(ctx) {
   const cu = cur && coverUrl(cur);
   const sessBooks = S.books.filter(b => b.s === 'leyendo' || b.s === 'porleer');
 
-  v.innerHTML = `<div class="apphead"><div><h2>Hoy</h2><div class="sub">${DIAS[now.getDay()]} ${now.getDate()} de ${['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][now.getMonth()]}</div></div>
-    <button class="iconbtn" id="hsr" aria-label="Buscar">${ic('search')}</button></div><div class="pad">
+  const hr = now.getHours(), saludo = hr < 6 ? 'Buenas noches' : hr < 13 ? 'Buenos días' : hr < 20 ? 'Buenas tardes' : 'Buenas noches';
+  v.innerHTML = `<div class="apphead"><div><h2>${saludo}</h2><div class="sub">${DIAS[now.getDay()]} ${now.getDate()} de ${['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][now.getMonth()]}</div></div>
+    <div class="row" style="gap:8px;align-items:center">${st > 0 ? `<span class="streak" title="Racha de lectura">${ic('flame')}${st} ${st === 1 ? 'día' : 'días'}</span>` : ''}<button class="iconbtn" id="hsr" aria-label="Buscar">${ic('search')}</button></div></div><div class="pad">
   ${reminderDue() ? `<div class="banner">${ic('bell')}<span>Aún no leíste hoy. ¿Un ratito con ${esc(cur?.t || 'tu libro')}?</span></div>` : ''}
-  ${!S.books.length ? `<div class="card onb"><h3>Empecemos tu biblioteca</h3><div class="sub">Tres formas de agregar libros:</div>
+  ${!S.books.length ? `<div class="card onb">${ilustVacia()}<h3>Empecemos tu biblioteca</h3><div class="sub">Tres formas de agregar libros:</div>
     <div class="steps3"><button class="stp" data-a="add"><b>1 · EPUB</b><span>La app toma el título, el autor y la portada.</span></button><button class="stp" data-a="isbn"><b>2 · Libro de papel</b><span>Escanea el ISBN o escríbelo.</span></button><button class="stp" data-a="csv"><b>3 · Lista de otra app</b><span>Importa un archivo CSV de Goodreads.</span></button></div></div>` : `
   <div class="hoy">
-   <div class="card hc cont">${cur ? `<h3>Seguir leyendo</h3><div class="resume"><span class="rcov" style="--c1:${cur.c1 || '#555'};${cu ? `--art:url('${cu}')` : ''}"></span><div style="min-width:0;flex:1"><b>${esc(cur.t)}</b><span>${esc(cur.a)} · ${Math.round((cur.r || 0) / cur.p * 100)} %</span></div><button class="go" id="goCur">${cur.hasFile ? 'Continuar' : 'Ficha'}</button></div>
-     <div class="pbar"><i style="width:${Math.round((cur.r || 0) / cur.p * 100)}%"></i></div><div class="sub" style="margin-top:6px">${esc(leftText(cur))}</div>` : `<h3>Seguir leyendo</h3><div class="sub">No tienes un libro en curso. Elige uno de tu estantería.</div>`}</div>
-   <div class="card hc"><h3>Meta de hoy</h3><div class="mrow"><svg class="ring" viewBox="0 0 100 100" role="img" aria-label="${done} de ${goal} páginas"><circle class="tr" cx="50" cy="50" r="${R}"/><circle class="fg" id="rfg" cx="50" cy="50" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${C}" transform="rotate(-90 50 50)"/><text x="50" y="58">${done}</text></svg>
-     <div><div style="font-weight:600">${done} de <input class="goalin" id="gd" type="number" min="1" value="${goal}" aria-label="Meta diaria de páginas"> págs.</div><div class="sub">${done >= goal ? '¡Meta cumplida hoy!' : `Con ${goal - done} más cierras el día${st ? ` y llevas ${st + (done ? 0 : 1)} ${st + (done ? 0 : 1) === 1 ? 'día' : 'días'} seguidos` : ''}.`}</div><div class="sub">${minutesToday() ? `Hoy leíste ${fmtDur(minutesToday())}.` : ''}</div></div></div></div>
-   <div class="card hc"><h3>Esta semana</h3><div class="days">${dots.map(d => `<span><i class="${d.on ? 'on' : ''} ${d.today ? 'today' : ''}"></i>${d.l}</span>`).join('')}</div><div class="sub" style="margin-top:10px">Racha: ${st} ${st === 1 ? 'día' : 'días'}</div></div>
+   <div class="card hc cont herob">${cur ? `<div class="hero3"><div class="cv3"><span class="rcov big" style="--c1:${cur.c1 || '#555'};${cu ? `--art:url('${cu}')` : ''}">${cu ? '' : `<i>${esc(cur.t)}</i>`}</span></div>
+     <div class="hinfo"><h3>Seguir leyendo</h3><b class="ht">${esc(cur.t)}</b><span class="hsub">${esc(cur.a)}</span>
+     <div class="pbar"><i style="width:${Math.round((cur.r || 0) / cur.p * 100)}%"></i></div><span class="hsub">${cur.r ? `Pág. ${cur.r} de ${cur.p} · ` : ''}${esc(leftText(cur))}</span>
+     <button class="go" id="goCur">${cur.hasFile ? 'Continuar' : 'Ficha'}</button></div></div>` : `<h3>Seguir leyendo</h3><div class="sub">No tienes un libro en curso. Elige uno de tu estantería.</div>`}</div>
+   <div class="card hc half"><h3>Meta de hoy</h3><div class="metaN">${done}<small> / <input class="goalin" id="gd" type="number" min="1" value="${goal}" aria-label="Meta diaria de páginas"> págs.</small></div>
+     <div class="pbar"><i style="width:${Math.min(100, Math.round(done / goal * 100))}%"></i></div><div class="sub" style="margin-top:8px">${done >= goal ? '¡Meta cumplida hoy!' : `Faltan ${goal - done}.`}${minutesToday() ? ` Hoy: ${fmtDur(minutesToday())}.` : ''}</div></div>
+   <div class="card hc half"><h3>Esta semana</h3><div class="wbars">${dots.map(d => `<span><i class="${d.on ? 'on' : ''} ${d.today ? 'today' : ''}" style="height:${d.on ? Math.max(10, Math.min(40, Math.round((d.pages || 0) / goal * 40))) : 6}px"></i>${d.l}</span>`).join('')}</div><div class="sub" style="margin-top:8px">Racha: ${st} ${st === 1 ? 'día' : 'días'}</div></div>
    <div class="card hc sessc"><h3>Sesión de lectura</h3>
      <select id="sbk" aria-label="Libro de la sesión">${sessBooks.map(b => `<option value="${b.id}" ${b.id === sess.bookId ? 'selected' : ''}>${esc(b.t)}</option>`).join('') || '<option value="">Sin libros</option>'}</select>
      <div class="timer" id="tm">${fmt(sess.sec)}</div>

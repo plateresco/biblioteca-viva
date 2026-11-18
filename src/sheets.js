@@ -1,5 +1,5 @@
 import { importarArchivo } from './importar.js';
-import { S, ST, FORMATS, byId, coverUrl, addBook, saveBook, removeBook, recuperar, setStatus, addPages, today, fd, emit } from './state.js';
+import { S, ST, FORMATS, MODELOS, byId, coverUrl, addBook, saveBook, removeBook, recuperar, setStatus, addPages, today, fd, emit } from './state.js';
 import { $, $$, esc, ic, openSheet, closeSheet, toast, toastAccion } from './ui.js';
 import { coverColors, fallbackColors } from './color.js';
 import { lookupISBN, canScan, startScan } from './isbn.js';
@@ -189,6 +189,7 @@ export function openEdit(id) {
       <div class="two"><label>Páginas<input name="p" type="number" min="1" required value="${b.p}" inputmode="numeric"></label>
         <label>Formato<select name="f">${FORMATS.map(x => `<option ${x === b.f ? 'selected' : ''}>${x}</option>`).join('')}</select></label></div>
       <div class="two"><label>Serie o saga<input name="serie" value="${esc(b.serie || '')}" placeholder="Ej.: Dune"></label><label>Tomo<input name="tomo" type="number" min="0" value="${b.tomo || ''}" inputmode="numeric"></label></div>
+      <label>Modelo de lomo<select name="modelo">${MODELOS.map(([k, n]) => `<option value="${k}" ${(b.modelo || '') === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
       <label>Géneros (separados por coma)<input name="gen" value="${esc((b.gen || []).join(', '))}" placeholder="Ficción, ciencia ficción"></label>
       <label>Estado<select name="s">${Object.entries(ST).map(([k, v]) => `<option value="${k}" ${k === b.s ? 'selected' : ''}>${v.n}</option>`).join('')}</select></label>
       <div class="two"><label>Empezó<input name="st" type="date" value="${b.st || ''}"></label><label>Terminó o lo dejó<input name="en" type="date" value="${b.en || ''}"></label></div>
@@ -204,7 +205,7 @@ export function openEdit(id) {
     b.t = d.get('t').trim(); b.a = (d.get('a') || '').trim() || 'Autor desconocido';
     b.p = Math.max(1, +d.get('p') || 1); b.f = d.get('f'); b.syn = (d.get('syn') || '').trim();
     b.st = d.get('st') || null; b.en = d.get('en') || null;
-    const sv = (d.get('serie') || '').trim(); if (sv) b.serie = sv; else delete b.serie; b.tomo = +d.get('tomo') || 0; b.gen = (d.get('gen') || '').split(',').map(x => x.trim()).filter(Boolean);
+    const sv = (d.get('serie') || '').trim(); if (sv) b.serie = sv; else delete b.serie; b.tomo = +d.get('tomo') || 0; if (d.get('modelo')) b.modelo = d.get('modelo'); else delete b.modelo; b.gen = (d.get('gen') || '').split(',').map(x => x.trim()).filter(Boolean);
     const ns = d.get('s');
     const file = d.get('cov');
     if (file && file.size) { b.cover = await shrinkImage(file); Object.assign(b, await coverColors(b.cover, b.t)); }

@@ -1,7 +1,7 @@
 import { setStatus } from './state.js';
 import { S, ST, cnt, byId, moveBook, moveToIndex, spineGeom, saveMeta, startManual, arrange, removePiso, reorderPisos, newId, pisoOf } from './state.js';
 import { P, setPref } from './prefs.js';
-import { $, $$, esc, ic, toast, toastAccion, reduce, openSheet, closeSheet } from './ui.js';
+import { $, $$, esc, ic, toast, toastAccion, reduce, openSheet, closeSheet, ilustVacia } from './ui.js';
 import { openCover, openAdd, openSync } from './sheets.js';
 import { spineStyle, spineInner, spineStyleClass } from './spine.js';
 import { openScene } from './scene.js';
@@ -35,7 +35,7 @@ const hit = b => (S.ui.filter !== 'todos' || S.ui.col !== null) && !dimmed(b);
 
 function spineHTML(b, extra = '') {
   const u = S.ui;
-  return `<button class="spine ${spineStyleClass(b)} ${u.pick === b.id ? 'pick' : ''} ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''} ${hit(b) ? 'hit' : ''} ${extra}" data-id="${b.id}" style="${spineStyle(b)}" aria-label="${esc(b.t)}, ${ST[b.s].n}">${spineInner(b)}</button>`;
+  return `<button class="spine ${spineStyleClass(b)} ${u.pick === b.id ? 'pick' : ''} ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''} ${hit(b) ? 'hit' : ''} ${u.lastOut === b.id ? 'lean' : ''} ${extra}" data-id="${b.id}" style="${spineStyle(b)}" aria-label="${esc(b.t)}, ${ST[b.s].n}">${spineInner(b)}</button>`;
 }
 const pisoBooks = (p, first) => ordenar(S.books.filter(b => b.piso === p.id || (first && !S.meta.pisos.some(x => x.id === b.piso))), P.sort);
 // Con orden por serie, cada saga lleva una pequeña separación y su nombre.
@@ -59,7 +59,7 @@ export function drawLib(ctx) {
   const avail = Math.max(200, v.clientWidth - 24 - 20 - 4 - BOOKEND);
 
   let body = '';
-  if (!S.books.length) body = `<div class="welcome"><h3>Tu estantería está vacía</h3>Agrega tu primer libro en EPUB, con el ISBN de un libro de papel o desde un archivo CSV.</div>`;
+  if (!S.books.length) body = `<div class="welcome">${ilustVacia()}<h3>Tu estantería está vacía</h3>Agrega tu primer libro en EPUB, con el ISBN de un libro de papel o desde un archivo CSV.</div>`;
   else if (view === 'shelf' && !manual) {
     body = packRows(lista(), avail).map(r => `<div class="shelfrow"><div class="shelf ${u.reorder ? 'reorder' : ''}">${conSeries(r, b => spineHTML(b))}<i class="bookend"></i></div><div class="board"></div></div>`).join('');
   } else if (view === 'shelf') {

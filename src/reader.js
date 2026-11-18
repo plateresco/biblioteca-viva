@@ -36,7 +36,7 @@ export async function openReader(id, cfiTarget) {
       <button class="iconbtn" id="rNotes" aria-label="Subrayados">${ic('quote')}</button>
       <button class="iconbtn" id="rOpt" aria-label="Letra y voz">${ic('aa')}</button>
     </div>
-    <div class="vwrap"><div id="viewer"></div><div class="fband" id="fband" hidden></div><div class="brstrip" id="brstrip" aria-hidden="true"></div><div class="brtip" id="brtip" hidden></div><div id="panel" class="panel" hidden></div></div>
+    <div class="vwrap"><div id="viewer"></div><div class="rskel" id="rskel" aria-hidden="true">${[90, 100, 96, 100, 70, 0, 100, 94, 100, 60].map(w => w ? `<div class="skel" style="width:${w}%"></div>` : '<div style="height:8px"></div>').join('')}</div><div class="fband" id="fband" hidden></div><div class="brstrip" id="brstrip" aria-hidden="true"></div><div class="brtip" id="brtip" hidden></div><div id="panel" class="panel" hidden></div></div>
     <div class="veil" id="veil"></div>
     <div class="listen" id="listen" hidden><div class="lrow1"><button class="iconbtn" id="lPrev" aria-label="Frase anterior">${ic('left')}</button><button class="play" id="lPlay" aria-label="Pausar">${ic('pause')}</button><button class="iconbtn" id="lNext" aria-label="Frase siguiente">${ic('right')}</button>
       <div style="flex:1;min-width:0"><b style="font-size:14px">Leyendo en voz alta</b><div class="small" id="lInfo">&nbsp;</div></div>
@@ -44,7 +44,7 @@ export async function openReader(id, cfiTarget) {
       <div class="lrow2"><button class="lchip" id="lRate">Velocidad <b>1x</b></button><button class="lchip" id="lSleep">Dormir <b>Apagado</b></button></div></div>
     <div class="rfoot"><div class="nav">
       <button class="iconbtn" id="rPrev" aria-label="Página anterior">${ic('left')}</button>
-      <input type="range" id="rSlide" min="0" max="1000" value="0" aria-label="Posición en el libro" disabled>
+      <div class="rwrap"><input type="range" id="rSlide" min="0" max="1000" value="0" aria-label="Posición en el libro" disabled><div class="ticks" id="rTicks"></div></div>
       <button class="iconbtn" id="rNext" aria-label="Página siguiente">${ic('right')}</button>
       <button class="iconbtn" id="rListen" aria-label="Escuchar en voz alta">${ic('phones')}</button></div>
       <div class="small" id="rPage"></div></div>`;
@@ -60,7 +60,14 @@ export async function openReader(id, cfiTarget) {
       rendition.themes.register(k, {
         body: { background: `${bg} !important`, color: `${fg} !important`, 'line-height': `${lh} !important`, ...(prefs.font === 'legible' ? { 'letter-spacing': '0.03em !important', 'word-spacing': '0.12em !important' } : {}) },
         '*': { color: `${fg} !important`, 'background-color': 'transparent !important', ...(fam ? { 'font-family': `${fam} !important` } : {}) },
-        ...(prefs.just ? { 'p, li': { 'text-align': 'justify !important', hyphens: 'auto' } } : {}),
+        ...(prefs.just || prefs.impreso !== false ? { 'p, li': { 'text-align': 'justify !important', hyphens: 'auto', '-webkit-hyphens': 'auto' } } : {}),
+        // Estilo de libro impreso: sangría en los párrafos, sin espacio entre ellos y capitular al abrir un capítulo.
+        ...(prefs.impreso !== false ? {
+          p: { 'text-indent': '1.2em !important', margin: '0 !important' },
+          'h1 + p, h2 + p, h3 + p, hr + p, blockquote p': { 'text-indent': '0 !important' },
+          'h1 + p::first-letter, h2 + p::first-letter': { float: 'left', 'font-size': '3.1em', 'line-height': '.82', padding: '.06em .1em 0 0', 'font-weight': '600' },
+          'h1, h2': { 'text-align': 'center !important', 'letter-spacing': '.06em', margin: '1.4em 0 1em !important' },
+        } : {}),
         'a, a *': { color: 'inherit !important', 'text-decoration': 'underline' },
         img: { 'max-width': '100% !important', 'background-color': 'transparent !important' },
       });
@@ -117,17 +124,26 @@ export async function openReader(id, cfiTarget) {
   if (prefs.mar != null) aplicarMargen(true);      // antes de mostrar la primera página solo se fija el ancho; no se re-pagina
   if (prefs.amb) { sonar(prefs.amb, prefs.ambv ?? .35); root.addEventListener('pointerdown', () => { if (prefs.amb) sonar(prefs.amb, prefs.ambv ?? .35); }, { once: true }); }
   await rendition.display(cfiTarget || b.cfi || undefined);
+  $('#rskel', root)?.remove();
 
+  // Marcas de capítulo sobre la barra de avance (según el lugar de cada capítulo en el libro).
+  async function pintaTicks() {
+    try {
+      const nav = await book.loaded.navigation, n = book.spine.length || 1, ps = new Set();
+      const walk = a => a.forEach(t => { const it = book.spine.get((t.href || '').split('#')[0]); if (it && it.index > 0) ps.add(Math.round(it.index / n * 1000) / 10); t.subitems && walk(t.subitems); }); walk(nav.toc);
+      $('#rTicks', root).innerHTML = [...ps].slice(0, 80).map(p => `<i style="left:${p}%"></i>`).join('');
+    } catch { }
+  }
   // Posiciones del libro (para el porcentaje y las páginas). Se calculan una vez y se guardan.
   (async () => {
     try {
       if (b.locs) book.locations.load(b.locs);
       else { await book.ready; await book.locations.generate(1100); b.locs = book.locations.save(); await persistBook(b); }
-      ready = true; $('#rSlide', root).disabled = false;
+      ready = true; $('#rSlide', root).disabled = false; pintaTicks();
       const loc = rendition.currentLocation(); if (loc && loc.start) onProgress(loc);
     } catch (e) { console.warn('locations', e); }
   })();
-  if (b.locs) { ready = true; $('#rSlide', root).disabled = false; }
+  if (b.locs) { ready = true; $('#rSlide', root).disabled = false; pintaTicks(); }
 
   /* ----- navegación ----- */
   let ocupado = false;
@@ -232,7 +248,7 @@ export async function openReader(id, cfiTarget) {
     <div><div class="small" style="margin-bottom:6px">Tamaño de letra</div><div class="row"><button class="btn ghost" id="fm" style="color:inherit">A −</button><button class="btn ghost" id="fp" style="color:inherit">A +</button><span class="small" id="fv" style="align-self:center">${fsz} %</span></div></div>
     <label>Interlineado <span class="small" id="lhv">${((prefs.lh || 16) / 10).toString().replace('.', ',')}</span><input type="range" id="lh" min="12" max="24" value="${prefs.lh || 16}"></label>
     <label>Márgenes <span class="small" id="mgv">${prefs.mar ?? 8} px</span><input type="range" id="mg" min="0" max="60" value="${prefs.mar ?? 8}"></label>
-    <div class="row"><label class="chk"><input type="checkbox" id="just" ${prefs.just ? 'checked' : ''}> Justificado</label><label class="chk"><input type="checkbox" id="focus" ${prefs.focus ? 'checked' : ''}> Modo enfoque</label><label class="chk"><input type="checkbox" id="anim" ${prefs.anim !== false ? 'checked' : ''}> Animar páginas</label></div>
+    <div class="row"><label class="chk"><input type="checkbox" id="impr" ${prefs.impreso !== false ? 'checked' : ''}> Estilo de libro impreso</label><label class="chk"><input type="checkbox" id="just" ${prefs.just ? 'checked' : ''}> Justificado</label><label class="chk"><input type="checkbox" id="focus" ${prefs.focus ? 'checked' : ''}> Modo enfoque</label><label class="chk"><input type="checkbox" id="anim" ${prefs.anim !== false ? 'checked' : ''}> Animar páginas</label></div>
     <label>Brillo de la pantalla <span class="small" id="brv"></span><input type="range" id="br" min="0" max="75" value="${Math.round((prefs.dim || 0) * 100)}"></label>
     <label>Voz para leer en voz alta<select id="vsel">${voices().map(v => `<option value="${esc(v.name)}" ${v.name === prefs.voice ? 'selected' : ''}>${esc(nativa ? v.name.replace(/-/g, ' ') : v.name)} (${esc(v.lang)})${v.net ? ' · alta calidad' : ''}</option>`).join('') || '<option value="">Voz predeterminada del dispositivo</option>'}</select></label>
     <div id="vneu"></div>
@@ -247,6 +263,7 @@ export async function openReader(id, cfiTarget) {
     $('#fp', root).onclick = () => { fsz = Math.min(220, fsz + 10); setPref('fsz', fsz); applySize(); $('#fv', root).textContent = fsz + ' %'; };
     $('#lh', root).oninput = e => { setPref('lh', +e.target.value); $('#lhv', root).textContent = (e.target.value / 10).toString().replace('.', ','); reestilo(); };
     $('#mg', root).oninput = e => { setPref('mar', +e.target.value); $('#mgv', root).textContent = e.target.value + ' px'; clearTimeout(mgT); mgT = setTimeout(aplicarMargen, 120); };
+    $('#impr', root).onchange = e => { setPref('impreso', e.target.checked); reestilo(); };
     $('#just', root).onchange = e => { setPref('just', e.target.checked); reestilo(); };
     $('#focus', root).onchange = e => { setPref('focus', e.target.checked); aplicarEnfoque(); };
     $('#anim', root).onchange = e => setPref('anim', e.target.checked);
