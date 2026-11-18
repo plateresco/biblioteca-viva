@@ -12,7 +12,7 @@ import './style2.css';
 import { registerSW } from 'virtual:pwa-register';
 import { S, load, onChange, byId } from './state.js';
 import { P, setPref, THEMES } from './prefs.js';
-import { $, $$, ic, reduce } from './ui.js';
+import { $, $$, ic, reduce, contarNumeros } from './ui.js';
 import { drawLib, selectBook, isWide } from './lib.js';
 import { drawHoy } from './hoy.js';
 import { openCover, openAdd } from './sheets.js';
@@ -80,8 +80,11 @@ function go0(t) {
   $$('.view').forEach(v => v.hidden = v.id !== 'v-' + t);
   $$('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));
   $('#app').classList.toggle('withdetail', t === 'lib');
+  const t0 = performance.now();
   DRAW[t](ctx);
-  $('#v-' + t).scrollTop = 0;
+  try { const m = JSON.parse(localStorage.getItem('bv-perf') || '{}'); m[t] = Math.round(performance.now() - t0); m.libros = S.books.length; localStorage.setItem('bv-perf', JSON.stringify(m)); } catch { }
+  const vista = $('#v-' + t); vista.scrollTop = 0;
+  vista.classList.add('ent'); setTimeout(() => vista.classList.remove('ent'), 700); contarNumeros(vista);
   if (window.AndroidApp) setTimeout(() => import('./native.js').then(n => n.pintarBarras()), 150);   // las barras del sistema siguen al color de cada pantalla
 }
 let redrawQ = 0;

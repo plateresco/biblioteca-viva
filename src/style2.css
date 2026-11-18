@@ -679,8 +679,8 @@ html[data-dens="compacta"] .sheet .grab{height:20px}
 
 /* ---- Temas nuevos: Negro OLED y Papel ---- */
 html[data-theme="negro"]{--bg:#000;--surface:#000;--surface2:#0E1214;--ink:#E6ECE9;--muted:#8A9894;--line:#1D2528;--accent:#62B7AB;--accent-ink:#0B1613;--ok:#5DBB86;--warn:#E0B24A;--bad:#E07A70;--idle:#7a8582;--paper:#E7E1D2;--r-bg:#000;--r-chip:rgba(255,255,255,.07);--r-card:rgba(255,255,255,.05);color-scheme:dark}
-html[data-theme="papel"]{--bg:#EADFC6;--surface:#F4EAD3;--surface2:#E9DCBE;--ink:#3B2D1B;--muted:#7A6748;--line:#D2BF9C;--accent:#8A4B25;--accent-ink:#fff;--ok:#4B7A3A;--warn:#9A6B14;--bad:#A9433B;--idle:#8a7c62;--paper:#F1E5CE;
-  --r-bg:#EADFC6;--r-ink:#3B2D1B;--r-muted:#7A6748;--r-chip:rgba(80,50,10,.07);--r-line:rgba(80,50,10,.18);--r-card:rgba(255,255,255,.5);--r-accent:#8A4B25;--r-accent-ink:#fff;--r-wood1:#C79A62;--r-wood2:#A97C45;--r-glow:rgba(255,255,255,.6);--r-head:#3B2D1B;color-scheme:light}
+html[data-theme="papel"]{--bg:#EADFC6;--surface:#F4EAD3;--surface2:#E9DCBE;--ink:#3B2D1B;--muted:#66553A;--line:#D2BF9C;--accent:#8A4B25;--accent-ink:#fff;--ok:#4B7A3A;--warn:#9A6B14;--bad:#A9433B;--idle:#8a7c62;--paper:#F1E5CE;
+  --r-bg:#EADFC6;--r-ink:#3B2D1B;--r-muted:#66553A;--r-chip:rgba(80,50,10,.07);--r-line:rgba(80,50,10,.18);--r-card:rgba(255,255,255,.5);--r-accent:#8A4B25;--r-accent-ink:#fff;--r-wood1:#C79A62;--r-wood2:#A97C45;--r-glow:rgba(255,255,255,.6);--r-head:#3B2D1B;color-scheme:light}
 /* ---- Esquinas rectas y movimiento reducido (Apariencia) ---- */
 html[data-rect="si"] .card,html[data-rect="si"] .ml,html[data-rect="si"] .btn,html[data-rect="si"] .iconbtn,html[data-rect="si"] .chip,html[data-rect="si"] input,html[data-rect="si"] select,html[data-rect="si"] textarea,html[data-rect="si"] .banner,html[data-rect="si"] .gdef,html[data-rect="si"] .vn5,html[data-rect="si"] .quote5{border-radius:8px}
 html[data-rect="si"] .sheet{border-radius:14px 14px 0 0}html[data-rect="si"] .tabplus{border-radius:12px}
@@ -719,3 +719,49 @@ html[data-calma="si"] *,html[data-calma="si"] *::before,html[data-calma="si"] *:
 .bingo5{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}.bingo5 button{border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:12px;padding:8px 4px;font:600 11.5px/1.25 var(--f-body);min-height:64px}
 .bingo5 button.on{background:color-mix(in srgb,var(--accent) 24%,var(--surface2));border-color:var(--accent)}
 .qlhc{display:flex;align-items:center;gap:14px}
+
+/* ---- Biblioteca en teléfono: selector de estado en vez de cinco chips ---- */
+.estbtn{display:none;gap:6px}.estbtn em{font-style:normal;opacity:.7}
+@media (max-width:639px){
+  .estbtn{display:inline-flex}
+  .tb .fbar,.tb .vw{display:none}
+  .tb{justify-content:flex-start}
+  .estbtn[aria-pressed],.estbtn{flex:none}
+}
+
+/* ---- Frases: deslizar ---- */
+.q{touch-action:pan-y;position:relative}
+.q.swl{box-shadow:inset 0 0 0 999px rgba(192,80,74,.28)}.q.swr{box-shadow:inset 0 0 0 999px color-mix(in srgb,var(--accent) 26%,transparent)}
+.q.swl::after,.q.swr::after{position:absolute;top:50%;transform:translateY(-50%);font:700 12px var(--f-body);background:rgba(0,0,0,.55);color:#fff;padding:4px 10px;border-radius:99px}
+.q.swl::after{content:"Borrar";right:12px}.q.swr::after{content:"Compartir";left:12px}
+#qaj{position:relative}
+
+/* ============ Tanda 8: pulido ============ */
+/* escala de espacios y números de ancho fijo */
+:root{--sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px}
+.timer,.metaN,.ring5 i,.rpair b,.wdots span,output,.tile b,.wgrid b,#tm,.era5 b,.lp,.sub b,.chip em,.spill{font-variant-numeric:tabular-nums}
+/* respuesta inmediata al presionar */
+.btn,.chip,.iconbtn,.ml,.tab,.go,.stp,.slot,.mstar,.tabplus{transition:transform .08s ease,filter .08s ease,background-color .15s,color .15s,border-color .15s}
+.btn:active,.chip:active,.iconbtn:active,.ml:active,.go:active,.stp:active,.slot:active{transform:scale(.97);filter:brightness(.92)}
+.tab:active{transform:scale(.93)}
+/* entrada en cascada al abrir una pantalla */
+@keyframes casin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.view.ent .hoy>.card,.view.ent .mlw,.view.ent .masonry>.q,.view.ent .cgrid>*,.view.ent #mb>.card,.view.ent .tiles>*,.view.ent .lrows>*{animation:casin .32s both}
+.view.ent :is(.hoy>.card,.mlw,.masonry>.q,.cgrid>*,#mb>.card,.tiles>*,.lrows>*):nth-child(2){animation-delay:30ms}
+.view.ent :is(.hoy>.card,.mlw,.masonry>.q,.cgrid>*,#mb>.card,.tiles>*,.lrows>*):nth-child(3){animation-delay:60ms}
+.view.ent :is(.hoy>.card,.mlw,.masonry>.q,.cgrid>*,#mb>.card,.tiles>*,.lrows>*):nth-child(4){animation-delay:90ms}
+.view.ent :is(.hoy>.card,.mlw,.masonry>.q,.cgrid>*,#mb>.card,.tiles>*,.lrows>*):nth-child(5){animation-delay:120ms}
+.view.ent :is(.hoy>.card,.mlw,.masonry>.q,.cgrid>*,#mb>.card,.tiles>*,.lrows>*):nth-child(n+6){animation-delay:150ms}
+@media (prefers-reduced-motion:reduce){.view.ent *{animation:none!important}}
+/* zonas táctiles de 44 px sin cambiar el tamaño visible */
+.iconbtn,.chip,.mstar,.tab{position:relative}
+.iconbtn::after{content:"";position:absolute;inset:-2px}
+.chip::after{content:"";position:absolute;inset:-6px -2px}
+.mstar{width:44px;height:44px}
+/* rendimiento: lo que está fuera de pantalla no se dibuja */
+.shelfrow,.piso{content-visibility:auto;contain-intrinsic-size:auto 240px}
+.btile,.lrow{content-visibility:auto;contain-intrinsic-size:auto 120px}
+.masonry>.q{content-visibility:auto;contain-intrinsic-size:auto 170px}
+
+.heartx{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-size:78px;color:#E07A70;z-index:6;pointer-events:none;animation:heartx .7s both}
+@keyframes heartx{0%{transform:translate(-50%,-50%) scale(.3);opacity:0}30%{transform:translate(-50%,-50%) scale(1.1);opacity:1}100%{transform:translate(-50%,-80%) scale(1);opacity:0}}

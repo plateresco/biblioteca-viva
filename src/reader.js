@@ -201,6 +201,28 @@ export async function openReader(id, cfiTarget) {
   const onKey = e => { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return; if (e.key === 'b' || e.key === 'B') { $('#rMark', root).click(); } if ((e.key === 'd' || e.key === 'D') && selCfi && bar) { bar.querySelector('[data-def]')?.click(); } if (e.key === '+' || e.key === '=') $('#fp', root)?.click(); if (e.key === '-') $('#fm', root)?.click(); if (e.key === 'h' || e.key === 'H') { if (selCfi && bar) saveHL(lastColor); } if (e.key === '/') { e.preventDefault?.(); $('#rSearch', root).click(); } if (e.key === 'ArrowRight' || e.key === 'PageDown') go(1); if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1); if (e.key === 'Escape') { if (!$('#panel', root).hidden) hidePanel(); else close(); } };
   rendition.on('keyup', onKey); document.addEventListener('keyup', onKey);
   let tx = 0, ty = 0;
+  // Gestos dentro del libro: doble toque en el centro marca la página; pellizcar cambia el tamaño de la letra.
+  rendition.hooks.content.register(c => {
+    try {
+      const d = c.document, W = () => c.window.innerWidth || 1; let ult = null, d0 = null;
+      const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+      d.addEventListener('touchstart', e => { if (prefs.gestos === false) return; if (e.touches.length === 2) d0 = dist(e.touches); }, { passive: true });
+      d.addEventListener('touchmove', e => {
+        if (prefs.gestos === false || e.touches.length !== 2 || !d0) return; e.preventDefault();
+        const r = dist(e.touches) / d0;
+        if (r > 1.3 || r < .77) { fsz = Math.max(70, Math.min(220, fsz + (r > 1 ? 10 : -10))); setPref('fsz', fsz); applySize(); d0 = dist(e.touches); toast('Letra al ' + fsz + ' %'); }
+      }, { passive: false });
+      d.addEventListener('touchend', e => {
+        if (e.touches.length === 0) d0 = null; if (prefs.gestos === false || e.changedTouches.length !== 1 || e.touches.length) return;
+        const t = e.changedTouches[0], ahora = Date.now(), fx = (t.clientX % W()) / W();
+        if (fx < .25 || fx > .75) { ult = null; return; }
+        if (ult && ahora - ult.t < 320 && Math.hypot(t.clientX - ult.x, t.clientY - ult.y) < 30) {
+          ult = null; $('#rMark', root).click();
+          const h = document.createElement('div'); h.className = 'heartx'; h.textContent = '♥'; $('.vwrap', root).appendChild(h); setTimeout(() => h.remove(), 750);
+        } else ult = { t: ahora, x: t.clientX, y: t.clientY };
+      }, { passive: true });
+    } catch { }
+  });
   rendition.on('touchstart', e => { tx = e.changedTouches[0].screenX; ty = e.changedTouches[0].screenY; });
   rendition.on('touchend', e => { const dx = e.changedTouches[0].screenX - tx, dy = e.changedTouches[0].screenY - ty; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1); });
   rendition.on('click', e => { // toque en los costados = pasar de página; en el centro, mueve el enfoque o salta a esa frase
@@ -294,6 +316,7 @@ export async function openReader(id, cfiTarget) {
     <div class="small" style="margin-top:6px">Comodidad</div>
     <div class="row"><label class="chk"><input type="checkbox" id="bioc" ${prefs.bio ? 'checked' : ''}> Lectura asistida (resalta el inicio de cada palabra)</label><label class="chk"><input type="checkbox" id="cal" ${prefs.calido ? 'checked' : ''}> Brillo cálido de noche (22:00 a 6:00)</label>
       ${AN?.teclasVolumen ? `<label class="chk"><input type="checkbox" id="vol" ${prefs.vol !== false ? 'checked' : ''}> Pasar página con las teclas de volumen</label><label class="chk"><input type="checkbox" id="pan" ${prefs.pant !== false ? 'checked' : ''}> Mantener la pantalla encendida</label>` : ''}</div>
+    <label class="chk"><input type="checkbox" id="ges" ${prefs.gestos !== false ? 'checked' : ''}> Gestos: doble toque marca la página y pellizcar cambia la letra</label>
     <label>Zonas de toque<select id="zon"><option value="norm" ${(prefs.zonas || 'norm') === 'norm' ? 'selected' : ''}>Estándar: borde izquierdo atrás, derecho adelante</option><option value="zurdo" ${prefs.zonas === 'zurdo' ? 'selected' : ''}>Zurdo: invertidas</option><option value="solo" ${prefs.zonas === 'solo' ? 'selected' : ''}>Solo derecha: casi toda la pantalla avanza</option></select></label>
     <label>Brillo de la pantalla <span class="small" id="brv"></span><input type="range" id="br" min="0" max="75" value="${Math.round((prefs.dim || 0) * 100)}"></label>
     <label>Voz para leer en voz alta<select id="vsel">${voices().map(v => `<option value="${esc(v.name)}" ${v.name === prefs.voice ? 'selected' : ''}>${esc(nativa ? v.name.replace(/-/g, ' ') : v.name)} (${esc(v.lang)})${v.net ? ' · alta calidad' : ''}</option>`).join('') || '<option value="">Voz predeterminada del dispositivo</option>'}</select></label>
@@ -317,6 +340,7 @@ export async function openReader(id, cfiTarget) {
     $('#vol', root)?.addEventListener('change', e => { setPref('vol', e.target.checked); usaVolumen(); });
     $('#pan', root)?.addEventListener('change', e => { setPref('pant', e.target.checked); try { AN.pantallaEncendida(e.target.checked); } catch { } });
     $('#zon', root).onchange = e => { setPref('zonas', e.target.value); };
+    $('#ges', root).onchange = e => { setPref('gestos', e.target.checked); prefs.gestos = e.target.checked; };
     $('#just', root).onchange = e => { setPref('just', e.target.checked); reestilo(); };
     $('#focus', root).onchange = e => { setPref('focus', e.target.checked); aplicarEnfoque(); };
     $('#anim', root).onchange = e => setPref('anim', e.target.checked);

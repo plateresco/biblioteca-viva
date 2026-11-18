@@ -89,3 +89,15 @@ export function closeSheet() { const o = $('#sheet'); if (o) o.remove(); }
 
 // Ilustración para pantallas vacías: un estante pequeño con tres libros y una planta.
 export const ilustVacia = () => `<svg class="vacia" viewBox="0 0 130 70" aria-hidden="true"><rect x="8" y="56" width="114" height="8" rx="2" fill="#7A5230"/><rect x="8" y="56" width="114" height="2" fill="rgba(255,255,255,.18)"/><rect x="18" y="26" width="12" height="30" rx="2" fill="#2F6F8A"/><rect x="33" y="18" width="10" height="38" rx="2" fill="#8E2F2A"/><rect x="46" y="29" width="14" height="27" rx="2" fill="#C9A24A"/><rect x="64" y="20" width="11" height="36" rx="2" fill="#4E7D55" transform="rotate(9 69 56)"/><path d="M98 56V44c-8-2-10-10-6-18 6 4 9 8 6 18 3-8 10-10 14-12-2 8-6 12-14 12z" fill="#4E7D55"/><rect x="92" y="50" width="16" height="10" rx="2" fill="#B5603A"/></svg>`;
+
+// Números que suben hasta su valor al entrar a una pantalla (no hace nada con «Reducir movimiento»).
+export function contarNumeros(root) {
+  if (reduce || !root) return;
+  [...root.querySelectorAll('.tile b, .wgrid b, .ring5 i')].forEach(el => {
+    const txt = el.textContent.trim(); if (!/^[\d.]+$/.test(txt)) return;
+    const fin = parseInt(txt.replace(/\./g, ''), 10); if (!fin || fin > 1e7) return;
+    const t0 = performance.now(), dur = 700;
+    const paso = now => { const p = Math.min(1, (now - t0) / dur), v = Math.round(fin * (1 - Math.pow(1 - p, 3))); el.textContent = v.toLocaleString('es-CL'); if (p < 1) requestAnimationFrame(paso); else el.textContent = txt; };
+    el.textContent = '0'; requestAnimationFrame(paso);
+  });
+}

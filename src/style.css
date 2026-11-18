@@ -96,7 +96,7 @@ html[data-theme="contraste"] .spine.foil .ttl,html[data-theme="contraste"] .spin
 }
 @keyframes sheen{from{--shx:-130%}to{--shx:230%}}
 .spine.dim{opacity:.2}
-.spine.hit{transform:translateY(-8px)}
+.spine.hitb{transform:translateY(-8px)}
 .spine.pick{transform:translateY(-28px);outline:2px solid #E4B861;outline-offset:2px;animation:none}
 .reorder .spine:not(.pick){animation:wob .7s ease-in-out infinite alternate}
 .reorder .spine:nth-child(even){animation-delay:.2s}

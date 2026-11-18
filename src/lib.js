@@ -41,7 +41,7 @@ const hit = b => (S.ui.filter !== 'todos' || S.ui.col !== null) && !dimmed(b);
 
 function spineHTML(b, extra = '') {
   const u = S.ui;
-  return `<button class="spine ${spineStyleClass(b)} ${u.pick === b.id ? 'pick' : ''} ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''} ${hit(b) ? 'hit' : ''} ${u.lastOut === b.id ? 'lean' : ''} ${extra}" data-id="${b.id}" style="${spineStyle(b)}" aria-label="${esc(b.t)}, ${ST[b.s].n}">${spineInner(b)}</button>`;
+  return `<button class="spine ${spineStyleClass(b)} ${u.pick === b.id ? 'pick' : ''} ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''} ${hit(b) ? 'hitb' : ''} ${u.lastOut === b.id ? 'lean' : ''} ${extra}" data-id="${b.id}" style="${spineStyle(b)}" aria-label="${esc(b.t)}, ${ST[b.s].n}">${spineInner(b)}</button>`;
 }
 const pisoBooks = (p, first) => ordenar(S.books.filter(b => visible(b) && (b.piso === p.id || (first && !S.meta.pisos.some(x => x.id === b.piso)))), P.sort);
 // Con orden por serie, cada saga lleva una pequeña separación y su nombre.
@@ -85,6 +85,7 @@ export function drawLib(ctx) {
     <div class="row" style="gap:8px"><button class="iconbtn" id="srch" aria-label="Buscar">${ic('search')}</button><button class="iconbtn" id="syn" aria-label="Sincronizar con Google Drive">${ic('cloud')}</button>
     <button class="iconbtn" id="reo" aria-pressed="${u.reorder}" aria-label="Reordenar libros" ${S.books.length < 2 ? 'hidden' : ''}>${ic('move')}</button></div></div>
   ${S.books.length ? `<div class="tb"><div class="fbar"><div class="chips" id="chips"><span class="ind" id="ind"></span>${FL.map(([k, n]) => `<button class="chip" data-f="${k}" aria-pressed="${f === k}">${n} <em>${count(k)}</em></button>`).join('')}</div></div>
+    <button class="chip estbtn" id="est" aria-haspopup="dialog">${FL.find(x => x[0] === f)?.[1] || 'Todos'} <em>${count(f)}</em> ▾</button>
     <button class="chip fbtn" id="flt" aria-label="Filtros y orden">${ic('list')} Filtros${(P.sort && P.sort !== 'orden') || u.col !== null || manual ? '<i class="fdot"></i>' : ''}</button><div class="vw" role="group" aria-label="Vista">${[['shelf', 'shelf', 'Estantería'], ['grid', 'grid', 'Portadas'], ['list', 'list', 'Lista']].map(([k, i, n]) => `<button data-v="${k}" aria-pressed="${view === k}" aria-label="${n}" title="${n}">${ic(i)}</button>`).join('')}</div></div>` : ''}
   ${u.reorder ? `<div class="hint" style="margin:4px 20px 8px">${u.pick ? 'Ahora toca el libro donde quieres dejarlo.' : 'Toca un libro para levantarlo, o mantenlo presionado para arrastrarlo.'}</div>` : ''}
   ${body}
@@ -105,12 +106,18 @@ export function drawLib(ctx) {
     });
   }
   $$('.vw button', v).forEach(b => b.onclick = () => { setPref('view', b.dataset.v); drawLib(ctx); });
+  $('#est', v)?.addEventListener('click', () => {
+    const o = openSheet(`<h3>Mostrar libros</h3><div class="mlist" style="margin-top:12px">${FL.map(([k, n]) => `<button class="ml" data-f="${k}" aria-pressed="${f === k}"><span class="mt"><b>${n}</b></span><span class="sub">${count(k)}</span></button>`).join('')}</div>`);
+    $$('[data-f]', o).forEach(b => b.onclick = () => { u.filter = b.dataset.f; closeSheet(); drawLib(ctx); });
+  });
   $('#flt', v)?.addEventListener('click', () => {
     const o = openSheet(`<h3>Filtros y orden</h3><div class="sub">Cambia cómo se ven y se ordenan tus libros.</div>
+      <div class="lbl" style="margin-top:14px">Vista</div><div class="row" id="vwsel" style="gap:6px;margin-top:6px">${[['shelf', 'Estantería'], ['grid', 'Portadas'], ['list', 'Lista']].map(([k, n]) => `<button class="chip" data-v="${k}" aria-pressed="${view === k}">${n}</button>`).join('')}</div>
       <div class="lbl" style="margin-top:14px">Orden</div><div class="row" id="ordseg" style="gap:6px;margin-top:6px">${ORDENES.map(([k, n]) => `<button class="chip" data-o="${k}" aria-pressed="${(P.sort || 'orden') === k}">${n}</button>`).join('')}</div>
       ${view === 'shelf' ? `<div class="lbl" style="margin-top:14px">Pisos</div><div class="row" style="gap:6px;margin-top:6px"><button class="chip" data-pm="auto" aria-pressed="${S.meta.mode !== 'manual'}">Automático</button><button class="chip" data-pm="manual" aria-pressed="${S.meta.mode === 'manual'}">Manual</button></div>` : ''}
       ${cols.length || S.books.some(b => b.loan) ? `<div class="lbl" style="margin-top:14px">Colección</div><div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="chip" data-c="" aria-pressed="${u.col === null}">Todas</button>${cols.map(c => `<button class="chip" data-c="${c.id}" aria-pressed="${u.col === c.id}">${esc(c.n)}</button>`).join('')}${S.books.some(b => b.loan) ? `<button class="chip" data-c="_loan" aria-pressed="${u.col === '_loan'}">Prestados</button>` : ''}</div>` : ''}
       <div class="row" style="margin-top:18px"><button class="btn" data-x>Listo</button></div>`);
+    $$('#vwsel [data-v]', o).forEach(b => b.onclick = () => { setPref('view', b.dataset.v); closeSheet(); drawLib(ctx); });
     $$('[data-o]', o).forEach(b => b.onclick = () => { setPref('sort', b.dataset.o); if (b.dataset.o !== 'orden' && u.reorder) { u.reorder = false; u.pick = null; toast('Para mover libros a mano, vuelve a «Mi orden»'); } closeSheet(); drawLib(ctx); });
     $$('[data-c]', o).forEach(c => c.onclick = () => { u.col = c.dataset.c === '' ? null : c.dataset.c; $$('[data-c]', o).forEach(x => x.setAttribute('aria-pressed', x === c)); applyDim(v); $('#flt', v)?.classList.toggle('on', u.col !== null); });
     $$('[data-pm]', o).forEach(b => b.onclick = async () => {
@@ -159,7 +166,7 @@ function setupTip(v) {
 }
 
 function applyDim(v) {
-  $$('.spine, .btile, .lrow', v).forEach(s => { const b = byId(+s.dataset.id); if (!b) return; s.classList.toggle('dim', dimmed(b)); s.classList.toggle('hit', hit(b)); });
+  $$('.spine, .btile, .lrow', v).forEach(s => { const b = byId(+s.dataset.id); if (!b) return; s.classList.toggle('dim', dimmed(b)); s.classList.toggle('hitb', hit(b)); });
 }
 
 /* ---- Hoja de un piso: nombre, alto, objeto, orden y borrar ---- */

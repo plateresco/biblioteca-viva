@@ -1,6 +1,7 @@
 import { S, byId, removeNote, saveNote, coverUrl } from './state.js';
 import { P, setPref } from './prefs.js';
-import { $, $$, esc, ic, toast, openSheet, closeSheet, ilustVacia } from './ui.js';
+import { $, $$, esc, ic, toast, toastAccion, openSheet, closeSheet, ilustVacia } from './ui.js';
+import { haptic } from './native.js';
 import { imgQuote, shareImage } from './share.js';
 import { abrirExportar } from './exportar.js';
 import { abrirRepaso, pendientes } from './repaso.js';
@@ -22,16 +23,15 @@ export function sugeridas(n) {
 }
 
 export function drawFrases(ctx) {
-  const v = $('#v-fr'), all = S.notes.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const v = $('#v-fr'), all = S.notes.filter(n => !n._oculta).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   const books = [...new Set(all.map(n => n.bookId))].map(id => byId(id)).filter(Boolean);
   const f = all.filter(n => (!qtext || n.text.toLowerCase().includes(qtext.toLowerCase()) || etiquetasDe(n).some(t => t.includes(qtext.toLowerCase()))) && (!qbook || String(n.bookId) === qbook) && (!qtag || etiquetasDe(n).includes(qtag)));
   const tags = todasEtiquetas();
   const dayQ = all.length ? all[S.ui.qi % all.length] : null;
   v.innerHTML = `<div class="apphead"><div><h2>Mis frases</h2><div class="sub">${all.length} ${all.length === 1 ? 'frase guardada' : 'frases guardadas'}</div></div><div class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">${all.length ? `<button class="btn ghost" id="exq">Exportar</button>` : ''}${pendientes().length >= 1 && all.length >= 3 ? `<button class="btn ghost" id="rpq">Repasar</button>` : ''}${window.AndroidApp?.escanearPagina ? `<button class="btn ghost" id="scp">${ic('camera')}Escanear</button>` : ''}<button class="btn" id="nq">${ic('plus')}Nueva</button></div></div><div class="pad">
-   ${all.length ? `<div class="fbar2"><div class="seg2" id="tplseg">${[['papel', 'Papel'], ['noche', 'Noche'], ['libro', 'Color del libro']].map(([k, n]) => `<button data-t="${k}" aria-pressed="${tpl === k}">${n}</button>`).join('')}</div>
-     <input id="qs" type="search" value="${esc(qtext)}" placeholder="Buscar en tus frases" aria-label="Buscar en tus frases">
-     ${books.length > 1 ? `<select id="qb" aria-label="Filtrar por libro"><option value="">Todos los libros</option>${books.map(b => `<option value="${b.id}" ${String(b.id) === qbook ? 'selected' : ''}>${esc(b.t)}</option>`).join('')}</select>` : ''}</div>
+   ${all.length ? `<div class="fbar2"><input id="qs" type="search" value="${esc(qtext)}" placeholder="Buscar en frases, libros y etiquetas" aria-label="Buscar en tus frases"><button class="iconbtn" id="qaj" aria-label="Ajustes de la lista">${ic('menu')}${tpl !== 'papel' || qbook ? '<i class="fdot" style="position:absolute;top:6px;right:6px"></i>' : ''}</button></div>
    ${tags.length ? `<div class="row" id="qtg" style="gap:6px;padding:0 18px 10px;overflow-x:auto;flex-wrap:nowrap"><button class="chip" data-tg="" aria-pressed="${!qtag}">Todas</button>${tags.map(([t, c]) => `<button class="chip" data-tg="${esc(t)}" aria-pressed="${qtag === t}">#${esc(t)} <em>${c}</em></button>`).join('')}</div>` : ''}
+   ${(qtext || qbook || qtag) ? `<div class="sub" style="padding:0 18px 8px">${f.length} de ${all.length} frases</div>` : ''}
    <div class="masonry" id="quotes">${f.map(n => card(n)).join('') || `<div class="note">Ninguna frase coincide con tu búsqueda.</div>`}</div>`
    : `<div class="card onb">${ilustVacia()}<h3>Aún no tienes frases</h3><div class="sub">Mientras lees un EPUB, selecciona un texto y elige un color: queda subrayado y aparece aquí. También puedes escribir frases de libros de papel con «Nueva».</div></div>`}
   </div>`;
@@ -45,17 +45,50 @@ export function drawFrases(ctx) {
   $('#rpq', v)?.addEventListener('click', () => abrirRepaso(qtag));
   $$('#qtg [data-tg]', v).forEach(b => b.onclick = () => { qtag = b.dataset.tg; drawFrases(ctx); });
   $('#scp', v)?.addEventListener('click', () => escanearPagina());
-  $$('#tplseg button', v).forEach(b => b.onclick = () => { tpl = b.dataset.t; drawFrases(ctx); });
+  $('#qaj', v)?.addEventListener('click', () => {
+    const o = openSheet(`<h3>Ajustes de la lista</h3><div class="lbl" style="margin-top:12px">Plantilla de las imágenes</div><div class="row" id="tplseg" style="gap:6px;margin-top:6px">${[['papel', 'Papel'], ['noche', 'Noche'], ['libro', 'Color del libro']].map(([k, n]) => `<button class="chip" data-t="${k}" aria-pressed="${tpl === k}">${n}</button>`).join('')}</div>
+      ${books.length > 1 ? `<label style="display:grid;gap:4px;margin-top:14px;font-size:13px">Libro<select id="qb" aria-label="Filtrar por libro"><option value="">Todos los libros</option>${books.map(b => `<option value="${b.id}" ${String(b.id) === qbook ? 'selected' : ''}>${esc(b.t)}</option>`).join('')}</select></label>` : ''}
+      <div class="row" style="margin-top:16px"><button class="btn" data-x>Listo</button></div>`);
+    $$('#tplseg button', o).forEach(b => b.onclick = () => { tpl = b.dataset.t; closeSheet(); drawFrases(ctx); });
+    $('#qb', o)?.addEventListener('change', e => { qbook = e.target.value; closeSheet(); drawFrases(ctx); });
+  });
   $('#qs', v)?.addEventListener('input', e => { qtext = e.target.value; const pos = e.target.selectionStart; drawFrases(ctx); const i = $('#qs'); i.focus(); i.setSelectionRange(pos, pos); });
-  $('#qb', v)?.addEventListener('change', e => { qbook = e.target.value; drawFrases(ctx); });
   $('#quotes', v)?.addEventListener('click', async e => {
     const nt = e.target.closest('[data-nt]');
     if (nt) return editarNota(S.notes.find(x => x.id === +nt.dataset.nt), () => drawFrases(ctx));
     const sh = e.target.closest('[data-sh]'), go = e.target.closest('[data-go]'), del = e.target.closest('[data-del]');
     if (sh) { const n = S.notes.find(x => x.id === +sh.dataset.sh); toast('Preparando la imagen…'); await shareImage(await imgQuote(n, tpl, byId(n.bookId)), 'frase.png', n.text); }
     else if (go) { const n = S.notes.find(x => x.id === +go.dataset.go); ctx.openReader(n.bookId, n.pdfPag || n.cfi); }
-    else if (del) { await removeNote(+del.dataset.del); }
+    else if (del) { borrarConDeshacer(S.notes.find(x => x.id === +del.dataset.del), ctx); }
   });
+  // Deslizar una frase: a la izquierda se borra (con «Deshacer»), a la derecha se comparte.
+  let sw = null;
+  const qs = $('#quotes', v);
+  qs?.addEventListener('pointerdown', e => {
+    const c = e.target.closest('.q'); if (!c || e.target.closest('button,a,input,select,textarea')) return;
+    sw = { c, x0: e.clientX, y0: e.clientY, dx: 0, on: false, pasado: false, id: e.pointerId };
+  });
+  qs?.addEventListener('pointermove', e => {
+    if (!sw || e.pointerId !== sw.id) return; const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
+    if (!sw.on) { if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.6) { sw.on = true; try { sw.c.setPointerCapture(e.pointerId); } catch { } sw.c.style.transition = 'none'; } else if (Math.abs(dy) > 12) { sw = null; return; } else return; }
+    sw.dx = dx; sw.c.style.transform = `translateX(${dx}px)`; sw.c.classList.toggle('swl', dx < -20); sw.c.classList.toggle('swr', dx > 20);
+    const pasa = Math.abs(dx) > 90; if (pasa !== sw.pasado) { sw.pasado = pasa; if (pasa) haptic('tick'); }
+  });
+  const fin = async () => {
+    if (!sw) return; const { c, dx, on } = sw; sw = null; if (!on) return;
+    c.style.transition = 'transform .2s'; c.classList.remove('swl', 'swr'); const n = S.notes.find(x => x.id === +c.dataset.id);
+    if (dx < -90) { c.style.transform = 'translateX(-110%)'; setTimeout(() => borrarConDeshacer(n, ctx), 160); }
+    else { c.style.transform = ''; if (dx > 90 && n) { toast('Preparando la imagen…'); await shareImage(await imgQuote(n, tpl, byId(n.bookId)), 'frase.png', n.text); } }
+  };
+  qs?.addEventListener('pointerup', fin); qs?.addEventListener('pointercancel', fin);
+}
+
+// Borrar sin pedir confirmación: la frase se oculta y se puede deshacer durante 5 segundos.
+function borrarConDeshacer(n, ctx) {
+  if (!n) return; n._oculta = true; drawFrases(ctx);
+  let deshecho = false;
+  toastAccion('Frase borrada', 'Deshacer', () => { deshecho = true; delete n._oculta; drawFrases(ctx); });
+  setTimeout(async () => { if (!deshecho && n._oculta) { try { await removeNote(n.id); } catch { } } }, 5200);
 }
 
 // Frase escrita a mano (por ejemplo, de un libro de papel)
