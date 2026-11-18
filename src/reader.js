@@ -2,6 +2,8 @@ import ePub from 'epubjs';
 import { S, byId, getFile, setStatus, persistBook, addPages, addTime, saveNote, removeNote, emit } from './state.js';
 import { $, $$, esc, ic, toast } from './ui.js';
 import { ensureEpub } from './sync.js';
+import { nombreDispositivo, hace } from './dispositivo.js';
+import { SONIDOS, sonar, volumen, parar as pararAmb } from './ambient.js';
 
 const TH = { paper: ['#F1ECE0', '#26221B'], sepia: ['#E6D8B8', '#3B2E17'], night: ['#12181B', '#D7DBD6'], warm: ['#1D1610', '#E9D3B0'] };
 const FONTS = { libro: ['Original del libro', null], serif: ['Serif (Georgia)', "Georgia,'Times New Roman',serif"], sans: ['Sans', "system-ui,'Segoe UI',Roboto,sans-serif"], mono: ['Monoespaciada', "ui-monospace,Consolas,monospace"], legible: ['Fácil de leer', 'Verdana,Tahoma,sans-serif'] };
@@ -30,6 +32,7 @@ export async function openReader(id, cfiTarget) {
       <div class="ti"><b>${esc(b.t)}</b><span id="rLoc">Abriendo…</span></div>
       <button class="iconbtn" id="rToc" aria-label="Capítulos">${ic('menu')}</button>
       <button class="iconbtn" id="rSearch" aria-label="Buscar en el libro">${ic('search')}</button>
+      <button class="iconbtn" id="rMark" aria-label="Marcar esta página" aria-pressed="false">${ic('bookmark')}</button>
       <button class="iconbtn" id="rNotes" aria-label="Subrayados">${ic('quote')}</button>
       <button class="iconbtn" id="rOpt" aria-label="Letra y voz">${ic('aa')}</button>
     </div>
@@ -66,7 +69,7 @@ export async function openReader(id, cfiTarget) {
   registrarTemas();
   const applyTheme = t => { root.dataset.theme = t; rendition.themes.select(t); setPref('theme', t); };
   // Los márgenes se aplican al visor entero (así funcionan también con dos páginas) y se vuelve a paginar.
-  const aplicarMargen = () => { const m = prefs.mar ?? 8; const v = $('#viewer', root); v.style.left = v.style.right = m + 'px'; try { rendition.resize(); } catch { } };
+  const aplicarMargen = (sinResize) => { const m = prefs.mar ?? 8; const v = $('#viewer', root); v.style.left = v.style.right = m + 'px'; if (!sinResize) try { rendition.resize(); } catch { } };
   const reestilo = () => { registrarTemas(); rendition.themes.select(root.dataset.theme); };
   // «Noche cálida» automática: de noche, el lector pasa solo al fondo cálido (si no elegiste otro a mano esta vez).
   const horaNoche = () => { const h = new Date().getHours(); return h >= 22 || h < 6; };
@@ -78,7 +81,9 @@ export async function openReader(id, cfiTarget) {
   /* ----- estado de lectura ----- */
   if (b.s !== 'leyendo' && b.s !== 'leido') { const prev = b.s; await setStatus(b, 'leyendo'); if (prev === 'porleer') toast('Empezaste este libro: quedó en “Leyendo”'); }
   let ready = false, finishedAsked = b.s === 'leido', saveT;
-  const persist = () => { clearTimeout(saveT); saveT = setTimeout(() => persistBook(b), 600); };
+  const persist = () => { clearTimeout(saveT); b.dev = { n: nombreDispositivo(), t: Date.now() }; saveT = setTimeout(() => persistBook(b), 600); };
+  // Si lo leías en otro dispositivo hace poco, se avisa que se continúa desde ahí.
+  if (b.cfi && b.dev && b.dev.n !== nombreDispositivo() && Date.now() - b.dev.t < 14 * 864e5) toast(`Sigues desde donde lo dejaste en tu ${b.dev.n.toLowerCase()} (${hace(b.dev.t)})`);
 
   async function onProgress(loc) {
     b.cfi = loc.start.cfi;
@@ -94,8 +99,23 @@ export async function openReader(id, cfiTarget) {
     persist();
   }
   rendition.on('relocated', onProgress);
+  // Marcadores: una página marcada con un toque; se ven en el panel de subrayados.
+  const marks = () => (b.marks = b.marks || []);
+  const marcaDe = loc => { try { const c = new ePub.CFI(); return marks().find(m => c.compare(m.cfi, loc.start.cfi) >= 0 && c.compare(m.cfi, loc.end.cfi) <= 0); } catch { return null; } };
+  const pintaMark = loc => { try { loc = loc && loc.start ? loc : rendition.currentLocation(); $('#rMark', root).setAttribute('aria-pressed', String(!!(loc?.start && marcaDe(loc)))); } catch { } };
+  rendition.on('relocated', pintaMark);
+  $('#rMark', root).onclick = async () => {
+    let loc = null; try { loc = rendition.currentLocation(); } catch { }
+    if (!loc?.start) return toast('Espera a que cargue la página');
+    const m = marcaDe(loc);
+    if (m) { b.marks = marks().filter(x => x !== m); toast('Marcador quitado'); }
+    else { const pr = book.locations.length() > 0 ? book.locations.percentageFromCfi(loc.start.cfi) : 0; marks().push({ cfi: loc.start.cfi, pct: Math.round(pr * 100), t: Date.now() }); toast('Página marcada'); }
+    await persistBook(b); pintaMark();
+  };
 
-  if (prefs.mar != null) aplicarMargen();
+  if (prefs.dnd && AN?.noMolestar) { try { AN.noMolestar(true); } catch { } }
+  if (prefs.mar != null) aplicarMargen(true);      // antes de mostrar la primera página solo se fija el ancho; no se re-pagina
+  if (prefs.amb) { sonar(prefs.amb, prefs.ambv ?? .35); root.addEventListener('pointerdown', () => { if (prefs.amb) sonar(prefs.amb, prefs.ambv ?? .35); }, { once: true }); }
   await rendition.display(cfiTarget || b.cfi || undefined);
 
   // Posiciones del libro (para el porcentaje y las páginas). Se calculan una vez y se guardan.
@@ -216,6 +236,9 @@ export async function openReader(id, cfiTarget) {
     <label>Brillo de la pantalla <span class="small" id="brv"></span><input type="range" id="br" min="0" max="75" value="${Math.round((prefs.dim || 0) * 100)}"></label>
     <label>Voz para leer en voz alta<select id="vsel">${voices().map(v => `<option value="${esc(v.name)}" ${v.name === prefs.voice ? 'selected' : ''}>${esc(nativa ? v.name.replace(/-/g, ' ') : v.name)} (${esc(v.lang)})${v.net ? ' · alta calidad' : ''}</option>`).join('') || '<option value="">Voz predeterminada del dispositivo</option>'}</select></label>
     <div id="vneu"></div>
+    ${window.AndroidApp?.noMolestar ? `<label class="chk"><input type="checkbox" id="dnd" ${prefs.dnd ? 'checked' : ''}> No molestar mientras leo</label>` : ''}
+    <label>Sonido ambiente<select id="amb">${SONIDOS.map(([k, n]) => `<option value="${k}" ${(prefs.amb || '') === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+    <label>Volumen del sonido <input type="range" id="ambv" min="5" max="100" value="${Math.round((prefs.ambv ?? .35) * 100)}"></label>
     <label>Velocidad<select id="rate">${RATES.map(r => `<option value="${r}" ${(prefs.rate || 1) === r ? 'selected' : ''}>${String(r).replace('.', ',')}x</option>`).join('')}</select></label></div>`, () => {
     $$('[data-th]', root).forEach(b2 => b2.onclick = () => { applyTheme(b2.dataset.th); $$('[data-th]', root).forEach(x => x.setAttribute('aria-selected', x === b2)); });
     $('#autoN', root).onchange = e => { setPref('autoNoche', e.target.checked); prefs.autoNoche = e.target.checked; };
@@ -230,6 +253,13 @@ export async function openReader(id, cfiTarget) {
     const brt = () => { $('#brv', root).textContent = Math.round((1 - (prefs.dim || 0) / .75 * .8) * 100) + ' %'; }; brt();
     $('#br', root).oninput = e => { setPref('dim', e.target.value / 100); aplicarBrillo(); brt(); };
     $('#vsel', root).onchange = e => setPref('voice', e.target.value);
+    $('#dnd', root)?.addEventListener('change', e => {
+      const ok = AN.noMolestar(e.target.checked);
+      if (!ok && e.target.checked) { e.target.checked = false; toast('Concede el permiso «No molestar» a Mi Biblioteca y vuelve a activarlo'); return; }
+      setPref('dnd', e.target.checked);
+    });
+    $('#amb', root).onchange = e => { setPref('amb', e.target.value); sonar(e.target.value, prefs.ambv ?? .35); };
+    $('#ambv', root).oninput = e => { setPref('ambv', e.target.value / 100); volumen(e.target.value / 100); };
     import('./voz.js').then(m => m.dibujarVozNeuronal($('#vneu', root), prefs, setPref));
     $('#rate', root).onchange = e => { setPref('rate', +e.target.value); prefs.rate = +e.target.value; actualizarChips(); };
   });
@@ -262,10 +292,16 @@ export async function openReader(id, cfiTarget) {
   rendition.hooks.content.register(() => { // vuelve a marcar los subrayados de este libro, cada uno con su color
     S.notes.filter(n => n.bookId === b.id && n.cfi).forEach(n => paint(n.cfi, n.color || 'amarillo'));
   });
-  $('#rNotes', root).onclick = () => togglePanel('notes', `<h3>Subrayados</h3><div id="nl"></div>`, () => {
+  $('#rNotes', root).onclick = () => togglePanel('notes', `<h3>Subrayados</h3><div id="mkl"></div><div id="nl"></div><button class="btn ghost" id="expn" style="margin-top:10px;color:inherit">Exportar este libro</button>`, () => {
+    $('#mkl', root).innerHTML = marks().length ? `<div class="small" style="margin-bottom:6px">Marcadores</div>${marks().slice().sort((x, y) => x.pct - y.pct).map((m, i) => `<div class="hit nt"><button data-mk="${i}" style="text-align:left;flex:1">${ic('bookmark')} Página marcada${m.pct ? ` · ${m.pct} %` : ''}</button><button data-mx="${m.t}" aria-label="Quitar marcador">×</button></div>`).join('')}<div class="small" style="margin:10px 0 6px">Subrayados</div>` : '';
+    const ordenadas = marks().slice().sort((x, y) => x.pct - y.pct);
+    $$('[data-mk]', root).forEach(x => x.onclick = () => { stopTTS(); rendition.display(ordenadas[+x.dataset.mk].cfi); if (innerWidth < 1000) hidePanel(); });
+    $$('[data-mx]', root).forEach(x => x.onclick = async () => { b.marks = marks().filter(m => String(m.t) !== x.dataset.mx); await persistBook(b); x.closest('.nt').remove(); pintaMark(); });
+    $('#expn', root).onclick = () => import('./exportar.js').then(m => m.abrirExportar(b.id));
     const mine = S.notes.filter(n => n.bookId === b.id).sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0));
-    $('#nl', root).innerHTML = mine.length ? mine.map(n => `<div class="hit nt"><button data-g="${n.id}" style="text-align:left;flex:1"><i class="ndot" style="background:${COL[n.color] || COL.amarillo}"></i>${esc(n.text.slice(0, 140))}${n.text.length > 140 ? '…' : ''}</button><button data-x="${n.id}" aria-label="Quitar">×</button></div>`).join('') : '<div class="small">Aún no hay subrayados. Selecciona un texto y elige un color.</div>';
+    $('#nl', root).innerHTML = mine.length ? mine.map(n => `<div class="hit nt"><button data-g="${n.id}" style="text-align:left;flex:1"><i class="ndot" style="background:${COL[n.color] || COL.amarillo}"></i>${esc(n.text.slice(0, 140))}${n.text.length > 140 ? '…' : ''}</button><button data-c="${n.id}" aria-label="Nota">${ic('edit')}</button><button data-x="${n.id}" aria-label="Quitar">×</button></div>${n.comment ? `<div class="qnote" style="margin:-2px 0 8px 18px">${esc(n.comment)}</div>` : ''}`).join('') : '<div class="small">Aún no hay subrayados. Selecciona un texto y elige un color.</div>';
     $$('[data-g]', root).forEach(x => x.onclick = () => { const n = S.notes.find(z => z.id === +x.dataset.g); if (n?.cfi) { stopTTS(); rendition.display(n.cfi); if (innerWidth < 1000) hidePanel(); } });
+    $$('[data-c]', root).forEach(x => x.onclick = () => import('./frases.js').then(m => m.editarNota(S.notes.find(z => z.id === +x.dataset.c), () => { $('#rNotes', root).click(); $('#rNotes', root).click(); })));
     $$('[data-x]', root).forEach(x => x.onclick = async () => { const n = S.notes.find(z => z.id === +x.dataset.x); if (n?.cfi) { try { rendition.annotations.remove(n.cfi, 'highlight'); } catch { } } await removeNote(+x.dataset.x); x.closest('.nt').remove(); });
   });
 
@@ -400,7 +436,7 @@ export async function openReader(id, cfiTarget) {
   const timeT = setInterval(() => { if (document.visibilityState === 'visible' && document.hasFocus()) { acc += 5; if (acc - flushed >= 20) { addTime(b.id, acc - flushed); flushed = acc; } } }, 5000);
   function close() {
     clearInterval(timeT); if (acc > flushed) addTime(b.id, acc - flushed);
-    stopTTS(); hideSave(); clearTimeout(saveT); persistBook(b); delete window.__lecturaAccion;
+    stopTTS(); hideSave(); clearTimeout(saveT); persistBook(b); delete window.__lecturaAccion; pararAmb(); if (prefs.dnd && AN?.noMolestar) { try { AN.noMolestar(false); } catch { } }
     document.removeEventListener('keyup', onKey);
     try { book.destroy(); } catch { }
     root.remove(); cur = null; emit();

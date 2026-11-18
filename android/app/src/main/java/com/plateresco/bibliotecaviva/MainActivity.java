@@ -61,7 +61,8 @@ public class MainActivity extends Activity {
     VozNeuronal vn() { if (neural == null) neural = new VozNeuronal(this, c -> js(c)); return neural; }
     static final int REQ_FOTO = 44;
     Uri fotoUri;
-    String pendienteAtajo = null;
+    String pendienteAtajo = null, pendienteTexto = null;
+    boolean dndPrevio = false; int filtroPrevio = -1;
     WebView web;
     android.speech.tts.TextToSpeech voz; boolean vozLista = false;
     ValueCallback<Uri[]> chooserCb;
@@ -109,6 +110,7 @@ public class MainActivity extends Activity {
             }
             @Override public void onPageFinished(WebView v, String url) {
                 paginaLista = true;
+                if (pendienteTexto != null) { String t = pendienteTexto; pendienteTexto = null; js("setTimeout(function(){window.__compartirTexto&&window.__compartirTexto(" + q(t) + ")},1200)"); }
                 if (pendienteAtajo != null) { String a = pendienteAtajo; pendienteAtajo = null; atajo(a); }
                 if (pendienteArchivo != null) { String[] p = pendienteArchivo.split("\\|", 2); pendienteArchivo = null; entregarArchivo(p[0], p[1]); }
             }
@@ -200,6 +202,11 @@ public class MainActivity extends Activity {
         if (act != null && act.startsWith("com.plateresco.bibliotecaviva.") && !act.endsWith(".ACC_stop")) {
             String a = act.substring(act.lastIndexOf('.') + 1).toLowerCase();
             if (paginaLista) atajo(a); else pendienteAtajo = a;
+            return;
+        }
+        if (Intent.ACTION_SEND.equals(act) && st == null && i.getStringExtra(Intent.EXTRA_TEXT) != null) {     // texto de otra app: se guarda como frase
+            final String t = i.getStringExtra(Intent.EXTRA_TEXT);
+            if (paginaLista) js("setTimeout(function(){window.__compartirTexto&&window.__compartirTexto(" + q(t) + ")},600)"); else pendienteTexto = t;
             return;
         }
         Uri archivo = Intent.ACTION_SEND.equals(act) ? st : (Intent.ACTION_VIEW.equals(act) ? d : null);
@@ -322,6 +329,23 @@ public class MainActivity extends Activity {
                     }
                 } catch (Exception ignored) { }
             });
+        }
+
+        /* No molestar mientras lees: silencia los avisos y los devuelve al salir (pide un permiso especial la primera vez) */
+        @JavascriptInterface public boolean noMolestar(final boolean on) {
+            try {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (!nm.isNotificationPolicyAccessGranted()) {
+                    runOnUiThread(() -> { Intent i = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS); i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(i); });
+                    return false;
+                }
+                if (on) { if (filtroPrevio < 0) filtroPrevio = nm.getCurrentInterruptionFilter(); nm.setInterruptionFilter(android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY); }
+                else if (filtroPrevio >= 0) { nm.setInterruptionFilter(filtroPrevio); filtroPrevio = -1; }
+                return true;
+            } catch (Throwable e) { return false; }
+        }
+        @JavascriptInterface public boolean noMolestarPermitido() {
+            try { return ((android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE)).isNotificationPolicyAccessGranted(); } catch (Throwable e) { return false; }
         }
 
         /* Widgets de la pantalla de inicio */

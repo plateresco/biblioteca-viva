@@ -2,6 +2,8 @@ import { S, byId, removeNote, saveNote, coverUrl } from './state.js';
 import { P, setPref } from './prefs.js';
 import { $, $$, esc, ic, toast, openSheet, closeSheet } from './ui.js';
 import { imgQuote, shareImage } from './share.js';
+import { abrirExportar } from './exportar.js';
+import { abrirRepaso, pendientes } from './repaso.js';
 
 export const HL = { amarillo: 'rgba(242,201,76,.6)', verde: 'rgba(123,196,127,.55)', azul: 'rgba(127,178,240,.55)', rosa: 'rgba(242,154,184,.6)' };
 let tpl = 'papel', qtext = '', qbook = '';
@@ -11,7 +13,7 @@ export function drawFrases(ctx) {
   const books = [...new Set(all.map(n => n.bookId))].map(id => byId(id)).filter(Boolean);
   const f = all.filter(n => (!qtext || n.text.toLowerCase().includes(qtext.toLowerCase())) && (!qbook || String(n.bookId) === qbook));
   const dayQ = all.length ? all[S.ui.qi % all.length] : null;
-  v.innerHTML = `<div class="apphead"><div><h2>Mis frases</h2><div class="sub">${all.length} ${all.length === 1 ? 'frase guardada' : 'frases guardadas'}</div></div><div class="row" style="gap:8px">${window.AndroidApp?.escanearPagina ? `<button class="btn ghost" id="scp">${ic('camera')}Escanear</button>` : ''}<button class="btn" id="nq">${ic('plus')}Nueva</button></div></div><div class="pad">
+  v.innerHTML = `<div class="apphead"><div><h2>Mis frases</h2><div class="sub">${all.length} ${all.length === 1 ? 'frase guardada' : 'frases guardadas'}</div></div><div class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">${all.length ? `<button class="btn ghost" id="exq">Exportar</button>` : ''}${pendientes().length >= 1 && all.length >= 3 ? `<button class="btn ghost" id="rpq">Repasar</button>` : ''}${window.AndroidApp?.escanearPagina ? `<button class="btn ghost" id="scp">${ic('camera')}Escanear</button>` : ''}<button class="btn" id="nq">${ic('plus')}Nueva</button></div></div><div class="pad">
    ${all.length ? `<div class="fbar2"><div class="seg2" id="tplseg">${[['papel', 'Papel'], ['noche', 'Noche'], ['libro', 'Color del libro']].map(([k, n]) => `<button data-t="${k}" aria-pressed="${tpl === k}">${n}</button>`).join('')}</div>
      <input id="qs" type="search" value="${esc(qtext)}" placeholder="Buscar en tus frases" aria-label="Buscar en tus frases">
      ${books.length > 1 ? `<select id="qb" aria-label="Filtrar por libro"><option value="">Todos los libros</option>${books.map(b => `<option value="${b.id}" ${String(b.id) === qbook ? 'selected' : ''}>${esc(b.t)}</option>`).join('')}</select>` : ''}</div>
@@ -20,15 +22,19 @@ export function drawFrases(ctx) {
   </div>`;
   function card(n) {
     const b = byId(n.bookId), cu = b && coverUrl(b), c = b?.c1 || '#555';
-    return `<div class="q ${tpl}" data-id="${n.id}" style="--bc:${c};${cu && tpl === 'libro' ? `--art:url('${cu}')` : ''}"><span class="hdot" style="background:${HL[n.color] || HL.amarillo}"></span><q>“${esc(n.text)}”</q><div class="src"><span>${esc(n.title || '')}</span>
-      <span class="qa"><button data-sh="${n.id}" aria-label="Compartir como imagen">${ic('image')}Compartir</button>${b?.hasFile && n.cfi ? `<button data-go="${n.id}" aria-label="Ir al pasaje">${ic('arrow')}</button>` : ''}<button data-del="${n.id}" aria-label="Borrar">${ic('trash')}</button></span></div></div>`;
+    return `<div class="q ${tpl}" data-id="${n.id}" style="--bc:${c};${cu && tpl === 'libro' ? `--art:url('${cu}')` : ''}"><span class="hdot" style="background:${HL[n.color] || HL.amarillo}"></span><q>“${esc(n.text)}”</q>${n.comment ? `<div class="qnote">${esc(n.comment)}</div>` : ''}<div class="src"><span>${esc(n.title || '')}</span>
+      <span class="qa"><button data-nt="${n.id}" aria-label="${n.comment ? 'Editar nota' : 'Agregar nota'}">${ic('edit')}Nota</button><button data-sh="${n.id}" aria-label="Compartir como imagen">${ic('image')}Compartir</button>${b?.hasFile && n.cfi ? `<button data-go="${n.id}" aria-label="Ir al pasaje">${ic('arrow')}</button>` : ''}<button data-del="${n.id}" aria-label="Borrar">${ic('trash')}</button></span></div></div>`;
   }
   $('#nq', v).onclick = () => newQuote(ctx);
+  $('#exq', v)?.addEventListener('click', () => abrirExportar(qbook ? +qbook : null));
+  $('#rpq', v)?.addEventListener('click', () => abrirRepaso());
   $('#scp', v)?.addEventListener('click', () => escanearPagina());
   $$('#tplseg button', v).forEach(b => b.onclick = () => { tpl = b.dataset.t; drawFrases(ctx); });
   $('#qs', v)?.addEventListener('input', e => { qtext = e.target.value; const pos = e.target.selectionStart; drawFrases(ctx); const i = $('#qs'); i.focus(); i.setSelectionRange(pos, pos); });
   $('#qb', v)?.addEventListener('change', e => { qbook = e.target.value; drawFrases(ctx); });
   $('#quotes', v)?.addEventListener('click', async e => {
+    const nt = e.target.closest('[data-nt]');
+    if (nt) return editarNota(S.notes.find(x => x.id === +nt.dataset.nt), () => drawFrases(ctx));
     const sh = e.target.closest('[data-sh]'), go = e.target.closest('[data-go]'), del = e.target.closest('[data-del]');
     if (sh) { const n = S.notes.find(x => x.id === +sh.dataset.sh); toast('Preparando la imagen…'); await shareImage(await imgQuote(n, tpl, byId(n.bookId)), 'frase.png', n.text); }
     else if (go) { const n = S.notes.find(x => x.id === +go.dataset.go); ctx.openReader(n.bookId, n.cfi); }
@@ -66,4 +72,30 @@ export function escanearPagina() {
   };
   window.__ocrError = m => toast(m || 'No pude leer la página. Prueba con más luz.');
   A.escanearPagina();
+}
+
+// Nota propia sobre una frase subrayada.
+export function editarNota(n, alGuardar) {
+  if (!n) return;
+  const o = openSheet(`<h3>Tu nota</h3><div class="sub" style="font-style:italic;margin-bottom:8px">«${esc(n.text.slice(0, 160))}${n.text.length > 160 ? '…' : ''}»</div>
+    <textarea id="ntx" rows="5" maxlength="800" placeholder="Lo que pensaste al leer esto" style="width:100%;border-radius:12px;padding:10px;background:var(--surface2);color:var(--ink);border:1px solid var(--line);font:15px/1.5 var(--f-body)">${esc(n.comment || '')}</textarea>
+    <div class="row" style="margin-top:12px"><button class="btn" id="nts">Guardar nota</button>${n.comment ? '<button class="btn ghost" id="ntd">Quitar nota</button>' : ''}</div>`);
+  const guarda = async t => { n.comment = t; n.upd = Date.now(); await saveNote(n); closeSheet(); toast(t ? 'Nota guardada' : 'Nota quitada'); alGuardar && alGuardar(); };
+  $('#nts', o).onclick = () => guarda($('#ntx', o).value.trim());
+  $('#ntd', o)?.addEventListener('click', () => guarda(''));
+  setTimeout(() => $('#ntx', o)?.focus(), 200);
+}
+
+// Texto compartido desde otra app (Compartir → Mi Biblioteca): se elige el libro y se guarda como frase.
+export function guardarTextoCompartido(texto) {
+  const libros = S.books.slice().sort((a, b) => (b.upd || 0) - (a.upd || 0)), sel = libros.filter(b => b.s === 'leyendo').concat(libros.filter(b => b.s !== 'leyendo'));
+  if (!sel.length) return toast('Primero agrega un libro para guardar la frase');
+  const o = openSheet(`<h3>Guardar como frase</h3><textarea id="cst" rows="6" style="width:100%;margin-top:10px;border-radius:12px;padding:10px;background:var(--surface2);color:var(--ink);border:1px solid var(--line);font:15px/1.5 var(--f-read)">${esc(texto)}</textarea>
+    <label style="display:grid;gap:4px;margin-top:10px;font-size:13px">Libro<select id="csb">${sel.map(b => `<option value="${b.id}">${esc(b.t)}</option>`).join('')}</select></label>
+    <div class="row" style="margin-top:14px"><button class="btn" id="css">Guardar frase</button></div>`);
+  $('#css', o).onclick = async () => {
+    const t = $('#cst', o).value.replace(/\s+/g, ' ').trim(), b = byId(+$('#csb', o).value); if (!t || !b) return toast('Falta el texto o el libro');
+    await saveNote({ bookId: b.id, title: `${b.t} · ${b.a}`, text: t.slice(0, 800), color: 'amarillo', createdAt: Date.now() });
+    closeSheet(); toast('Frase guardada');
+  };
 }

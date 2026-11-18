@@ -6,6 +6,7 @@ export const esc =s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', 
 const P = {
   home: '<path d="M4 11l8-7 8 7v9H4zM10 20v-6h4v6"/>',
   more: '<path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/>',
+  bookmark: '<path d="M7 4h10v16l-5-3.5L7 20z"/>',
   grid: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>',
   star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',

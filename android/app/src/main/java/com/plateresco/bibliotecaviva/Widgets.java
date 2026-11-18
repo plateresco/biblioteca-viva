@@ -29,6 +29,7 @@ final class Widgets {
             AppWidgetManager m = AppWidgetManager.getInstance(c);
             for (int id : m.getAppWidgetIds(new ComponentName(c, ContinuarWidget.class))) m.updateAppWidget(id, continuar(c));
             for (int id : m.getAppWidgetIds(new ComponentName(c, RachaWidget.class))) m.updateAppWidget(id, racha(c));
+            for (int id : m.getAppWidgetIds(new ComponentName(c, FraseWidget.class))) m.updateAppWidget(id, frase(c));
         } catch (Exception ignored) { }
     }
 
@@ -51,6 +52,16 @@ final class Widgets {
             v.setProgressBar(R.id.w_prog, 100, j.optInt("pct", 0), false);
         }
         v.setOnClickPendingIntent(R.id.w_root, abrir(c, "CONTINUAR"));
+        return v;
+    }
+
+    static RemoteViews frase(Context c) {
+        JSONObject j = datos(c);
+        RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget_frase);
+        String f = j.optString("frase", "");
+        v.setTextViewText(R.id.w_frase, f.isEmpty() ? "Subraya frases mientras lees y aparecerán aquí." : "“" + f + "”");
+        v.setTextViewText(R.id.w_frase_l, j.optString("fraseLibro", ""));
+        v.setOnClickPendingIntent(R.id.w_root3, abrir(c, "CONTINUAR"));
         return v;
     }
 

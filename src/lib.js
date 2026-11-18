@@ -9,6 +9,9 @@ import { drawDetail } from './detail.js';
 import { openPalette } from './palette.js';
 import { OBJ, PISO_H } from './objects.js';
 import { haptic } from './native.js';
+import { ordenar, series as seriesMapa } from './orden.js';
+const lista = () => ordenar(S.books, P.sort);
+const ORDENES = [['orden', 'Mi orden'], ['color', 'Color'], ['serie', 'Serie'], ['autor', 'Autor']];
 import { coverUrl } from './state.js';
 
 export const isWide = () => innerWidth >= 1000;
@@ -34,7 +37,14 @@ function spineHTML(b, extra = '') {
   const u = S.ui;
   return `<button class="spine ${spineStyleClass(b)} ${u.pick === b.id ? 'pick' : ''} ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''} ${hit(b) ? 'hit' : ''} ${extra}" data-id="${b.id}" style="${spineStyle(b)}" aria-label="${esc(b.t)}, ${ST[b.s].n}">${spineInner(b)}</button>`;
 }
-const pisoBooks = (p, first) => S.books.filter(b => b.piso === p.id || (first && !S.meta.pisos.some(x => x.id === b.piso)));
+const pisoBooks = (p, first) => ordenar(S.books.filter(b => b.piso === p.id || (first && !S.meta.pisos.some(x => x.id === b.piso))), P.sort);
+// Con orden por serie, cada saga lleva una pequeña separación y su nombre.
+function conSeries(bs, mk) {
+  if (P.sort !== 'serie') return bs.map(b => mk(b)).join('');
+  const mapa = seriesMapa(); let prev = '', h = '';
+  for (const b of bs) { const s = mapa.get(b.id)?.serie || ''; if (s && s !== prev) h += `<i class="sep" title="${esc(s)}"><em>${esc(s.slice(0, 18))}</em></i>`; prev = s; h += mk(b); }
+  return h;
+}
 
 export function selectBook(id, ctx) {
   S.ui.sel = id;
@@ -51,17 +61,17 @@ export function drawLib(ctx) {
   let body = '';
   if (!S.books.length) body = `<div class="welcome"><h3>Tu estantería está vacía</h3>Agrega tu primer libro en EPUB, con el ISBN de un libro de papel o desde un archivo CSV.</div>`;
   else if (view === 'shelf' && !manual) {
-    body = packRows(S.books, avail).map(r => `<div class="shelfrow"><div class="shelf ${u.reorder ? 'reorder' : ''}">${r.map(b => spineHTML(b)).join('')}<i class="bookend"></i></div><div class="board"></div></div>`).join('');
+    body = packRows(lista(), avail).map(r => `<div class="shelfrow"><div class="shelf ${u.reorder ? 'reorder' : ''}">${conSeries(r, b => spineHTML(b))}<i class="bookend"></i></div><div class="board"></div></div>`).join('');
   } else if (view === 'shelf') {
     body = S.meta.pisos.map((p, i) => {
       const bs = pisoBooks(p, i === 0), tall = bs.filter(b => spineGeom(b).h > (PISO_H[p.h] || 196) - 14).length;
       return `<section class="piso" data-piso="${p.id}"><div class="plq"><button class="plate" data-pe="${p.id}" aria-label="Editar piso ${esc(p.n)}">${esc(p.n)}</button><em>${bs.length} ${bs.length === 1 ? 'libro' : 'libros'}${tall ? ` · ${tall} más alto${tall > 1 ? 's' : ''} que el piso` : ''}</em><span class="grow"></span><button class="mbtn" data-pe="${p.id}" aria-label="Opciones del piso">${ic('more')}</button></div>
-        <div class="shelf h-${p.h || 'normal'} ${u.reorder ? 'reorder' : ''}" data-p="${p.id}">${bs.map(b => spineHTML(b, spineGeom(b).h > (PISO_H[p.h] || 196) - 14 ? 'big' : '')).join('') || '<div class="empty">Piso vacío. Mantén presionado un libro y arrástralo hasta aquí.</div>'}${p.o ? OBJ[p.o] : ''}<i class="bookend"></i></div><div class="board"></div></section>`;
+        <div class="shelf h-${p.h || 'normal'} ${u.reorder ? 'reorder' : ''}" data-p="${p.id}">${conSeries(bs, b => spineHTML(b, spineGeom(b).h > (PISO_H[p.h] || 196) - 14 ? 'big' : '')) || '<div class="empty">Piso vacío. Mantén presionado un libro y arrástralo hasta aquí.</div>'}${p.o ? OBJ[p.o] : ''}<i class="bookend"></i></div><div class="board"></div></section>`;
     }).join('') + `<button class="addp" id="addp">${ic('plus')} Agregar piso</button>`;
   } else if (view === 'grid') {
-    body = `<div class="cgrid">${S.books.map(b => { const cu = coverUrl(b); return `<button class="btile ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''}" data-id="${b.id}"><span class="cv" style="--c1:${b.c1 || '#555'};${cu ? `--art:url('${cu}')` : ''}">${cu ? '' : `<span>${esc(b.t)}</span>`}</span><b>${esc(b.t)}</b><small>${esc(b.a)}</small><i class="tp" style="--w:${Math.round((b.r || 0) / b.p * 100)}%;--sc:${ST[b.s].c}"></i></button>`; }).join('')}</div>`;
+    body = `<div class="cgrid">${lista().map(b => { const cu = coverUrl(b); return `<button class="btile ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''}" data-id="${b.id}"><span class="cv" style="--c1:${b.c1 || '#555'};${cu ? `--art:url('${cu}')` : ''}">${cu ? '' : `<span>${esc(b.t)}</span>`}</span><b>${esc(b.t)}</b><small>${esc(b.a)}</small><i class="tp" style="--w:${Math.round((b.r || 0) / b.p * 100)}%;--sc:${ST[b.s].c}"></i></button>`; }).join('')}</div>`;
   } else {
-    body = `<div class="lrows">${S.books.map(b => { const cu = coverUrl(b); return `<button class="lrow ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''}" data-id="${b.id}"><span class="lc" style="--c1:${b.c1 || '#555'};${cu ? `--art:url('${cu}')` : ''}"></span><span class="lt"><b>${esc(b.t)}</b><small>${esc(b.a)}</small></span><span class="spill" style="--c:${ST[b.s].c}"><i></i>${ST[b.s].n}</span><span class="lp">${b.p} págs.</span><span class="lb2"><i style="width:${Math.round((b.r || 0) / b.p * 100)}%"></i></span></button>`; }).join('')}</div>`;
+    body = `<div class="lrows">${lista().map(b => { const cu = coverUrl(b); return `<button class="lrow ${u.sel === b.id ? 'sel' : ''} ${dimmed(b) ? 'dim' : ''}" data-id="${b.id}"><span class="lc" style="--c1:${b.c1 || '#555'};${cu ? `--art:url('${cu}')` : ''}"></span><span class="lt"><b>${esc(b.t)}</b><small>${esc(b.a)}</small></span><span class="spill" style="--c:${ST[b.s].c}"><i></i>${ST[b.s].n}</span><span class="lp">${b.p} págs.</span><span class="lb2"><i style="width:${Math.round((b.r || 0) / b.p * 100)}%"></i></span></button>`; }).join('')}</div>`;
   }
   const cols = S.meta.cols;
   v.innerHTML = `<div class="glow"></div>
@@ -70,7 +80,7 @@ export function drawLib(ctx) {
     <button class="iconbtn" id="reo" aria-pressed="${u.reorder}" aria-label="Reordenar libros" ${S.books.length < 2 ? 'hidden' : ''}>${ic('move')}</button></div></div>
   ${S.books.length ? `<div class="tb"><div class="fbar"><div class="chips" id="chips"><span class="ind" id="ind"></span>${FL.map(([k, n]) => `<button class="chip" data-f="${k}" aria-pressed="${f === k}">${n} <em>${count(k)}</em></button>`).join('')}</div></div>
     <div class="vw" role="group" aria-label="Vista">${[['shelf', 'shelf', 'Estantería'], ['grid', 'grid', 'Portadas'], ['list', 'list', 'Lista']].map(([k, i, n]) => `<button data-v="${k}" aria-pressed="${view === k}" aria-label="${n}" title="${n}">${ic(i)}</button>`).join('')}</div></div>
-   <div class="tb2">${view === 'shelf' ? `<span class="lbl">Pisos</span><span class="mini-seg"><button data-pm="auto" aria-pressed="${S.meta.mode !== 'manual'}">Automático</button><button data-pm="manual" aria-pressed="${S.meta.mode === 'manual'}">Manual</button></span>` : ''}
+   <div class="tb2"><span class="lbl">Orden</span><span class="mini-seg" id="ordseg">${ORDENES.map(([k, n]) => `<button data-o="${k}" aria-pressed="${(P.sort || 'orden') === k}">${n}</button>`).join('')}</span>${view === 'shelf' ? `<span class="lbl">Pisos</span><span class="mini-seg"><button data-pm="auto" aria-pressed="${S.meta.mode !== 'manual'}">Automático</button><button data-pm="manual" aria-pressed="${S.meta.mode === 'manual'}">Manual</button></span>` : ''}
      ${cols.length || S.books.some(b => b.loan) ? `<span class="lbl" style="margin-left:6px">Colección</span><button class="cchip" data-c="" aria-pressed="${u.col === null}">Todas</button>${cols.map(c => `<button class="cchip" data-c="${c.id}" aria-pressed="${u.col === c.id}">${esc(c.n)}</button>`).join('')}${S.books.some(b => b.loan) ? `<button class="cchip" data-c="_loan" aria-pressed="${u.col === '_loan'}">Prestados</button>` : ''}` : ''}</div>` : ''}
   ${u.reorder ? `<div class="hint" style="margin:4px 20px 8px">${u.pick ? 'Ahora toca el libro donde quieres dejarlo.' : 'Toca un libro para levantarlo, o mantenlo presionado para arrastrarlo.'}</div>` : ''}
   ${body}
@@ -91,12 +101,13 @@ export function drawLib(ctx) {
     });
   }
   $$('.cchip', v).forEach(c => c.onclick = () => { u.col = c.dataset.c === '' ? null : c.dataset.c; $$('.cchip', v).forEach(x => x.setAttribute('aria-pressed', x === c)); applyDim(v); });
+  $$('#ordseg button', v).forEach(b => b.onclick = () => { setPref('sort', b.dataset.o); if (b.dataset.o !== 'orden' && u.reorder) { u.reorder = false; u.pick = null; toast('Para mover libros a mano, vuelve a «Mi orden»'); } drawLib(ctx); });
   $$('.vw button', v).forEach(b => b.onclick = () => { setPref('view', b.dataset.v); drawLib(ctx); });
   $$('[data-pm]', v).forEach(b => b.onclick = async () => {
     if (b.dataset.pm === 'manual' && S.meta.mode !== 'manual') { await startManual(packRows(S.books, avail)); toast('Ahora decides tú qué va en cada piso'); }
     else if (b.dataset.pm === 'auto' && S.meta.mode !== 'auto') { S.meta.mode = 'auto'; await saveMeta(); toast('Los pisos se llenan solos'); }
   });
-  $('#reo', v).onclick = () => { u.reorder = !u.reorder; u.pick = null; drawLib(ctx); };
+  $('#reo', v).onclick = () => { if (P.sort && P.sort !== 'orden' && !u.reorder) { setPref('sort', 'orden'); toast('Volvió «Mi orden» para que puedas mover libros'); } u.reorder = !u.reorder; u.pick = null; drawLib(ctx); };
   $$('#addBtn', v).forEach(b => b.onclick = openAdd);
   $('#syn', v).onclick = openSync;
   $('#srch', v).onclick = openPalette;

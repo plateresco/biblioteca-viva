@@ -1,6 +1,6 @@
 import { importarArchivo } from './importar.js';
-import { S, ST, FORMATS, byId, coverUrl, addBook, saveBook, removeBook, setStatus, addPages, today, fd, emit } from './state.js';
-import { $, $$, esc, ic, openSheet, closeSheet, toast } from './ui.js';
+import { S, ST, FORMATS, byId, coverUrl, addBook, saveBook, removeBook, recuperar, setStatus, addPages, today, fd, emit } from './state.js';
+import { $, $$, esc, ic, openSheet, closeSheet, toast, toastAccion } from './ui.js';
 import { coverColors, fallbackColors } from './color.js';
 import { lookupISBN, canScan, startScan } from './isbn.js';
 import { shrinkImage } from './color.js';
@@ -72,7 +72,7 @@ export function openAdd(mode) {
     <div id="log"></div>
     <div class="rvbox" id="isbnc"><h4>Libro de papel · ISBN</h4><div class="sub">El ISBN está en la contraportada, junto al código de barras. Los datos vienen de Open Library, gratis.</div>
       <div class="isbnrow"><input id="isbn" inputmode="numeric" placeholder="Escribe o pega el ISBN" aria-label="ISBN" autocomplete="off"><button class="btn" id="isbnGo">Buscar</button></div>
-      ${canScan() ? `<button class="btn ghost" id="scanBtn" style="width:100%;margin-top:8px">${ic('camera')}Escanear con la cámara</button>` : '<div class="small" style="margin-top:6px">Este navegador no lee códigos de barras: escribe el número.</div>'}
+      ${canScan() ? `<button class="btn ghost" id="scanBtn" style="width:100%;margin-top:8px">${ic('camera')}Escanear con la cámara</button>${window.AndroidApp?.escanearIsbn ? `<label class="chk2"><input type="checkbox" id="rafaga"> Modo ráfaga: agregar cada libro escaneado y seguir con el siguiente</label>` : ''}` : '<div class="small" style="margin-top:6px">Este navegador no lee códigos de barras: escribe el número.</div>'}
       <div class="cam" id="cam" hidden><video id="vid" muted playsinline></video><div class="frame"><i></i><i></i><i></i><i></i></div><div class="scan"></div><div class="msg" id="camMsg">Apunta al código de barras</div><button class="shut" id="camStop">Cancelar</button></div>
       <div id="isbnRes"></div></div>
     <button class="btn ghost" id="manual" style="width:100%">Agregar sin archivo (audiolibro u otro)</button>`);
@@ -114,6 +114,16 @@ export function openAdd(mode) {
   // ISBN: búsqueda por número o con la cámara
   const res = $('#isbnRes', o); let stopCam = null;
   const stop = () => { stopCam && stopCam(); stopCam = null; $('#cam', o).hidden = true; $('#cam', o).classList.remove('scanning'); };
+  let rafagaN = 0;
+  // Ráfaga: se busca el ISBN, se agrega a «Por leer» y se vuelve a abrir el escáner para el siguiente.
+  async function agregarRafaga(code) {
+    try {
+      const d = await lookupISBN(code), col = d.cover ? await coverColors(d.cover, d.title) : fallbackColors(d.title);
+      if (S.books.some(x => x.isbn && x.isbn === d.isbn)) toast(`«${d.title}» ya estaba`);
+      else { await addBook({ t: d.title, a: d.author, p: d.pages || 250, f: 'Papel', cover: d.cover, syn: d.syn, isbn: d.isbn, hasFile: false, ...col }); rafagaN++; toast(`Agregado: ${d.title}`); }
+    } catch (e) { toast(e.message || 'No encontré ese ISBN'); }
+    setTimeout(() => window.AndroidApp.escanearIsbn(), 900);
+  }
   async function find(code) {
     stop(); res.innerHTML = `<div class="found"><span class="spin"></span><div class="small">Buscando ${esc(code)}…</div></div>`;
     try {
@@ -131,7 +141,8 @@ export function openAdd(mode) {
   $('#isbn', o).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); find($('#isbn', o).value); } });
   $('#scanBtn', o)?.addEventListener('click', async () => {
     if (window.AndroidApp?.escanearIsbn) {            // dentro de la app: escáner de Google
-      window.__isbnEscaneado = code => find(code);
+      window.__isbnEscaneado = code => ($('#rafaga', o)?.checked ? agregarRafaga(code) : find(code));
+      window.__isbnCancelado = () => { if (rafagaN) { toast(`${rafagaN} ${rafagaN === 1 ? 'libro agregado' : 'libros agregados'}`); rafagaN = 0; } };
       window.__isbnError = () => { res.innerHTML = `<div class="small" style="color:var(--bad);margin-top:8px">No pude abrir el escáner. Escribe el número.</div>`; };
       window.AndroidApp.escanearIsbn(); return;
     }
@@ -177,6 +188,8 @@ export function openEdit(id) {
       <label>Autor<input name="a" value="${esc(b.a)}"></label>
       <div class="two"><label>Páginas<input name="p" type="number" min="1" required value="${b.p}" inputmode="numeric"></label>
         <label>Formato<select name="f">${FORMATS.map(x => `<option ${x === b.f ? 'selected' : ''}>${x}</option>`).join('')}</select></label></div>
+      <div class="two"><label>Serie o saga<input name="serie" value="${esc(b.serie || '')}" placeholder="Ej.: Dune"></label><label>Tomo<input name="tomo" type="number" min="0" value="${b.tomo || ''}" inputmode="numeric"></label></div>
+      <label>Géneros (separados por coma)<input name="gen" value="${esc((b.gen || []).join(', '))}" placeholder="Ficción, ciencia ficción"></label>
       <label>Estado<select name="s">${Object.entries(ST).map(([k, v]) => `<option value="${k}" ${k === b.s ? 'selected' : ''}>${v.n}</option>`).join('')}</select></label>
       <div class="two"><label>Empezó<input name="st" type="date" value="${b.st || ''}"></label><label>Terminó o lo dejó<input name="en" type="date" value="${b.en || ''}"></label></div>
       <label>Sinopsis (opcional, se ve en la contraportada)<textarea name="syn" rows="3" maxlength="600">${esc(b.syn || '')}</textarea></label>
@@ -191,6 +204,7 @@ export function openEdit(id) {
     b.t = d.get('t').trim(); b.a = (d.get('a') || '').trim() || 'Autor desconocido';
     b.p = Math.max(1, +d.get('p') || 1); b.f = d.get('f'); b.syn = (d.get('syn') || '').trim();
     b.st = d.get('st') || null; b.en = d.get('en') || null;
+    const sv = (d.get('serie') || '').trim(); if (sv) b.serie = sv; else delete b.serie; b.tomo = +d.get('tomo') || 0; b.gen = (d.get('gen') || '').split(',').map(x => x.trim()).filter(Boolean);
     const ns = d.get('s');
     const file = d.get('cov');
     if (file && file.size) { b.cover = await shrinkImage(file); Object.assign(b, await coverColors(b.cover, b.t)); }
@@ -209,7 +223,8 @@ export function openEdit(id) {
   let armed = false;
   $('#del', o)?.addEventListener('click', async ev => {
     if (!armed) { armed = true; ev.currentTarget.textContent = 'Toca otra vez para quitarlo'; return; }
-    await removeBook(b.id); closeSheet(); toast('Libro quitado');
+    const tid = await removeBook(b.id); closeSheet();
+    if (tid) toastAccion(`«${b.t}» fue a la papelera`, 'Deshacer', async () => { await recuperar(tid); toast('Libro recuperado'); }); else toast('Libro quitado');
   });
 }
 

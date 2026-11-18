@@ -2,7 +2,9 @@ import { S, ST, byId, saveBook, saveMeta, newId, addBook, today, fd, coverUrl } 
 import { P, setPref, THEMES, ACENTOS, MADERAS, LOMOS, FUENTES } from './prefs.js';
 import { $, $$, esc, ic, toast, openSheet, closeSheet } from './ui.js';
 import { openSync, openAdd } from './sheets.js';
-import { syncLabel, syncState, isEnabled, lastSync } from './sync.js';
+import { syncLabel, syncState, isEnabled, lastSync, lastBackup } from './sync.js';
+import { porDispositivo, hace, nombreDispositivo, cambiarNombre } from './dispositivo.js';
+import { verPapelera, recuperar, borrarDePapelera, DIAS_PAPELERA } from './state.js';
 import { exportJSON, importJSON, exportCSV, readCSV, addImported } from './backup.js';
 import { fmtDur, daysSince } from './metrics.js';
 import { fallbackColors } from './color.js';
@@ -22,6 +24,8 @@ const MENU = [
   ['autores', 'Autores', () => `${new Set(S.books.map(b => b.a)).size} autores`, 'users'],
   ['diario', 'Diario de lectura', () => 'Lo que leíste, día por día', 'clock'],
   ['compartir', 'Compartir mi estante', () => 'Una imagen, no un enlace', 'image'],
+  ['papelera', 'Papelera', () => 'Libros quitados, 30 días para recuperarlos', 'trash'],
+  ['portadas', 'Completar portadas', () => { try { const n = S.books.filter(b => !b.cover).length; return n ? `${n} libros sin portada` : 'Todos tienen portada'; } catch { return ''; } }, 'image'],
   ['repetidos', 'Libros repetidos', () => { const n = sobrantes().length; return n ? `${n} repetidos por quitar` : 'No hay repetidos'; }, 'tag'],
   ['importar', 'Importar y agregar libros', () => 'EPUB, ISBN o lista CSV', 'upload'],
   ['apariencia', 'Apariencia y texto', () => THEMES.find(t => t[0] === P.theme)?.[1] + ' · letra ' + P.textScale + ' %', 'palette'],
@@ -177,8 +181,14 @@ const PAGES = {
     const s = syncState(), cls = !isEnabled() ? 'inf' : !navigator.onLine ? 'warnn' : s === 'auth' || s === 'error' ? 'bad' : s === 'syncing' ? 'inf' : 'okk';
     b.innerHTML = `<div class="sc ${cls}"><div class="ico">${ic('cloud')}</div><div><b>${syncLabel()}</b><span>${isEnabled() ? (lastSync() ? `Última sincronización: ${new Date(lastSync()).toLocaleString('es-CL')}` : 'Aún no se ha sincronizado.') : 'Conecta tu cuenta de Google para ver tu biblioteca en el PC y en el teléfono.'}</span>${s === 'syncing' ? '<div class="mp"><i></i></div>' : ''}</div></div>
       <div class="row" style="margin:12px 0 18px"><button class="btn" id="sy">${isEnabled() ? 'Sincronizar ahora' : 'Conectar con Google'}</button></div>
+      ${isEnabled() ? `<div class="card"><h3>Estado</h3><div class="syn2"><div><i class="pt"></i><b>${s === 'ok' || s === 'idle' ? 'Al día' : syncLabel()}</b>${lastSync() ? ` · ${hace(lastSync())}` : ''}</div>
+        <div class="mut"><i class="pt"></i>${S.books.length} libros · ${S.notes.length} frases</div>
+        ${porDispositivo().slice(0, 3).map(d => `<div class="mut"><i class="pt w"></i>${esc(d.n)}: leyendo «${esc(d.libro.slice(0, 28))}» ${hace(d.t)}</div>`).join('')}
+        <div class="mut"><i class="pt"></i>Copia automática: ${lastBackup() ? new Date(lastBackup()).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' }) : 'se hace con la próxima sincronización'}</div></div>
+        <label style="display:grid;gap:4px;margin-top:12px;font-size:13px">Nombre de este dispositivo<input id="dvn" value="${esc(nombreDispositivo())}" maxlength="20"></label></div>` : ''}
       <div class="card"><h3>Copia de seguridad</h3><div class="sub">Libros, fechas, páginas, frases, pisos y colecciones. Los EPUB se quedan en tu Drive.</div>
       <div class="row" style="margin-top:12px"><button class="btn ghost" id="ej">${ic('download')}Exportar copia (.json)</button><button class="btn ghost" id="ij">${ic('upload')}Importar copia</button><button class="btn ghost" id="ec">${ic('download')}Exportar lista (.csv)</button><input id="jf" type="file" accept=".json,application/json" hidden></div></div>`;
+    $('#dvn', b)?.addEventListener('change', e => { cambiarNombre(e.target.value); toast('Nombre guardado'); });
     $('#sy', b).onclick = openSync; $('#ej', b).onclick = exportJSON; $('#ec', b).onclick = exportCSV; $('#ij', b).onclick = () => $('#jf', b).click();
     $('#jf', b).onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const r = await importJSON(f); toast(`Copia importada: ${r.books} libros y ${r.notes} frases nuevas`); } catch (err) { toast(err.message || 'No se pudo importar'); } };
   },
@@ -191,10 +201,38 @@ const PAGES = {
   /* ---- Recomendaciones con IA ---- */
   ia(b) {
     const done = S.books.filter(x => x.s === 'leido').map(x => `${x.t} (${x.a})`), ing = S.books.filter(x => x.s === 'leyendo').map(x => `${x.t} (${x.a})`), drop = S.books.filter(x => x.s === 'abandonado').map(x => `${x.t} (${x.a})`);
-    const txt = `Recomiéndame 5 libros para leer a continuación, en español neutro, con una frase que explique por qué me gustaría cada uno.\n\nLibros que he leído: ${done.join('; ') || 'ninguno aún'}.\nLibros que estoy leyendo: ${ing.join('; ') || 'ninguno'}.\nLibros que abandoné (evita algo parecido): ${drop.join('; ') || 'ninguno'}.\nNo repitas los que ya tengo.`;
+    const fav = S.books.filter(x => x.s === 'leido' && (x.rating || 0) >= 4).map(x => `${x.t} (${x.a})`);
+    const txt = `Recomiéndame 5 libros para leer a continuación, en español neutro, con una frase que explique por qué me gustaría cada uno.\n\n${fav.length ? `Los que más me gustaron (4 o 5 estrellas): ${fav.join('; ')}.\n` : ''}Libros que he leído: ${done.join('; ') || 'ninguno aún'}.\nLibros que estoy leyendo: ${ing.join('; ') || 'ninguno'}.\nLibros que abandoné (evita algo parecido): ${drop.join('; ') || 'ninguno'}.\nNo repitas los que ya tengo.`;
     b.innerHTML = `<div class="card"><h3>Para tu próxima lectura</h3><div class="sub">La app arma la pregunta con lo que marcaste como leído, en lectura y abandonado. Cópiala y pégala en la IA que prefieras.</div><textarea class="ask" id="ask" readonly aria-label="Pregunta para la IA">${esc(txt)}</textarea>
       <div class="row" style="margin-top:10px"><button class="btn" id="cp">${ic('copy')}Copiar pregunta</button><a class="btn ghost" href="https://www.perplexity.ai/" target="_blank" rel="noopener">Abrir Perplexity</a></div></div>`;
     $('#cp', b).onclick = async () => { try { await navigator.clipboard.writeText(txt); toast('Pregunta copiada'); } catch { $('#ask', b).select(); toast('Selecciónala y cópiala'); } };
+  },
+  papelera(b) {
+    const draw = async () => {
+      const t = await verPapelera();
+      b.innerHTML = `<div class="card"><h3>Papelera</h3><div class="sub">Un libro quitado se guarda aquí ${DIAS_PAPELERA} días, con su archivo, sus frases y su diario.</div>
+        ${t.length ? `<div class="trash" style="margin-top:12px;display:grid;gap:10px">${t.map(x => { const dias = Math.max(0, DIAS_PAPELERA - Math.floor((Date.now() - x.at) / 864e5)); return `<div class="trit"><div style="min-width:0;flex:1"><b>${esc(x.book.t)}</b><div class="small">${esc(x.book.a)} · quedan ${dias} ${dias === 1 ? 'día' : 'días'}</div></div><button class="btn" data-r="${x.tid}">Recuperar</button><button class="btn ghost" data-d="${x.tid}" aria-label="Eliminar para siempre">${ic('trash')}</button></div>`; }).join('')}</div>` : '<p style="margin-top:12px">La papelera está vacía.</p>'}</div>`;
+      $$('[data-r]', b).forEach(x => x.onclick = async () => { const r = await recuperar(x.dataset.r); toast(r ? `«${r.t}» recuperado` : 'No se pudo recuperar'); draw(); });
+      $$('[data-d]', b).forEach(x => x.onclick = async () => { if (x.dataset.armed) { await borrarDePapelera(x.dataset.d); draw(); } else { x.dataset.armed = '1'; x.textContent = 'Toca otra vez'; } });
+    };
+    draw();
+  },
+  portadas(b) {
+    const n = () => S.books.filter(x => !x.cover).length; let cancel = false, corre = false;
+    const draw = () => {
+      b.innerHTML = `<div class="card"><h3>Completar portadas</h3><div class="sub">Busca en Open Library (gratis) la portada de los libros que no tienen imagen, por su ISBN o por su título y autor.</div>
+        <p style="margin:12px 0" id="pm">${n() ? `${n()} libros sin portada.` : 'Todos tus libros tienen portada.'}</p>
+        <div class="bar2"><i id="pp" style="width:0%"></i></div>
+        <div class="row" style="margin-top:12px">${n() ? `<button class="btn" id="pg">${corre ? 'Detener' : 'Buscar portadas'}</button>` : ''}</div></div>`;
+      $('#pg', b)?.addEventListener('click', async () => {
+        if (corre) { cancel = true; return; }
+        corre = true; cancel = false; draw();
+        const { completarPortadas } = await import('./portadas.js');
+        const r = await completarPortadas((i, t, x) => { const m = $('#pm', b); if (m) m.textContent = x ? `Buscando ${i + 1} de ${t}: ${x.t}` : 'Listo'; const p = $('#pp', b); if (p) p.style.width = (t ? i / t * 100 : 100) + '%'; }, () => cancel);
+        corre = false; toast(r ? `${r} portadas encontradas` : 'No encontré portadas nuevas'); draw();
+      });
+    };
+    draw();
   },
   repetidos(b) {
     const draw = () => {

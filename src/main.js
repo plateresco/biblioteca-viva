@@ -152,6 +152,7 @@ window.__abrirArchivo = async (url, nombre) => {
 if (window.AndroidApp) setTimeout(avisarSiHay, 4000);
 if (window.AndroidApp) import('./widgets.js').then(w => w.iniciarWidgets());
 // Atajos al mantener pulsado el ícono, y botones de los widgets
+window.__compartirTexto = t => import('./frases.js').then(m => m.guardarTextoCompartido(t));
 window.__atajo = a => {
   if (a === 'continuar') { const c = currentBook(); if (c?.hasFile) ctx.openReader(c.id); else if (c) ctx.openSheet(c.id); else go('lib'); }
   else if (a === 'agregar') { go('lib'); import('./sheets.js').then(m => m.openAdd()); }

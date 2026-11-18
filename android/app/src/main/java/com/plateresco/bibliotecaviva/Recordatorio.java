@@ -49,7 +49,16 @@ final class Recordatorio {
         if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(new NotificationChannel(CANAL, "Recordatorio de lectura", NotificationManager.IMPORTANCE_DEFAULT));
         PendingIntent abrir = PendingIntent.getActivity(c, 8, new Intent(c, MainActivity.class), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(c, CANAL) : new Notification.Builder(c);
-        b.setSmallIcon(R.drawable.ic_notif).setContentTitle("¿Un rato de lectura?").setContentText("Un ratito antes de que termine el día.").setContentIntent(abrir).setAutoCancel(true);
+        // Con los datos que la pagina dejo guardados: la racha, las paginas de hoy y el libro actual.
+        org.json.JSONObject j = Widgets.datos(c);
+        int racha = j.optInt("racha", 0), hoyP = j.optInt("hoy", 0), meta = j.optInt("meta", 20); String libro = j.optString("t", "");
+        String titulo = racha >= 2 ? "Tu racha de " + racha + " días está en juego" : "¿Un rato de lectura?";
+        int faltan = Math.max(1, meta - hoyP);
+        String texto = !libro.isEmpty() ? "Te faltan " + faltan + " páginas de «" + libro + "». Con 10 minutos alcanza." : "Un ratito antes de que termine el día.";
+        Intent continuar = new Intent(c, MainActivity.class).setAction("com.plateresco.bibliotecaviva.CONTINUAR").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pc = PendingIntent.getActivity(c, 9, continuar, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        b.setSmallIcon(R.drawable.ic_notif).setContentTitle(titulo).setContentText(texto).setStyle(new Notification.BigTextStyle().bigText(texto)).setContentIntent(pc).setAutoCancel(true);
+        if (!libro.isEmpty()) b.addAction(android.R.drawable.ic_menu_view, "Abrir libro", pc);
         try { nm.notify(70, b.build()); } catch (SecurityException ignored) { }
     }
 }

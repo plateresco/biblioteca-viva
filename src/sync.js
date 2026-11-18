@@ -1,7 +1,7 @@
 // Sincronización con Google Drive, en la carpeta oculta de la app ("appDataFolder").
 // Esa carpeta solo la ve esta app: no aparece en tu Drive ni toca tus otros archivos.
 import * as db from './db.js';
-import { S, load, emit, byId } from './state.js';
+import { S, load, emit, byId, today } from './state.js';
 import { A } from './native.js';
 
 // Dentro de la app de Android el inicio de sesión es nativo: dura meses (token de renovación) y no abre ventanas emergentes.
@@ -16,6 +16,7 @@ export const getClientId = () => NATIVE ? 'nativo' : LS('bv-gcid') || import.met
 export const setClientId = v => setLS('bv-gcid', v.trim() || null);
 export const isEnabled = () => LS('bv-sync-on') === '1';
 export const lastSync = () => +LS('bv-last-sync') || 0;
+export const lastBackup = () => +LS('bv-last-backup') || 0;
 export const disable = () => { setLS('bv-sync-on', null); token = null; if (NATIVE) A.cerrarSesionGoogle(); };
 
 let token = null, exp = 0, syncing = false;
@@ -136,7 +137,9 @@ export async function syncNow(onStatus = () => { }) {
     // 3) Frases y páginas leídas
     const byUid = new Map(S.books.map(b => [b.uid, b]));
     for (const rn of remote.notes || []) {
-      if (tomb.has(rn.uid) || S.notes.some(n => n.uid === rn.uid)) continue;
+      if (tomb.has(rn.uid)) continue;
+      const ex = S.notes.find(n => n.uid === rn.uid);
+      if (ex) { if ((rn.upd || 0) > (ex.upd || 0)) { Object.assign(ex, rn, { id: ex.id, bookId: ex.bookId }); await db.put('notes', ex); } continue; }
       const b = byUid.get(rn.bookUid); if (!b) continue;
       const n = { ...rn, bookId: b.id }; delete n.id; await db.put('notes', n);
     }
@@ -166,7 +169,18 @@ export async function syncNow(onStatus = () => { }) {
       meta: S.meta,
       tomb: [...tomb.values()],
     };
-    await upload('library.json', new Blob([JSON.stringify(out)], { type: 'application/json' }), lib?.id);
+    const cuerpo = new Blob([JSON.stringify(out)], { type: 'application/json' });
+    await upload('library.json', cuerpo, lib?.id);
+    // Copia semanal automática: una por semana, se guardan las últimas cuatro.
+    try {
+      const baks = files.filter(f => /^backup-\d{4}-\d{2}-\d{2}\.json$/.test(f.name)).sort((a, b) => a.name.localeCompare(b.name));
+      const ult = baks.length ? new Date(baks[baks.length - 1].name.slice(7, 17) + 'T00:00:00').getTime() : 0;
+      if (Date.now() - ult >= 7 * 864e5 && S.books.length) {
+        const nombre = `backup-${today()}.json`; if (!baks.some(f => f.name === nombre)) { await upload(nombre, cuerpo); baks.push({ name: nombre }); }
+        while (baks.length > 4) { const v = baks.shift(); if (v.id) await remove(v.id); }
+        setLS('bv-last-backup', String(Date.now()));
+      } else if (baks.length) setLS('bv-last-backup', String(ult));
+    } catch (e) { console.warn('copia semanal', e); }
 
     // 5) Archivos: portadas (todas) y EPUB (se suben; se bajan al abrir el libro)
     for (const b of S.books) {

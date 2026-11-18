@@ -46,6 +46,21 @@ export async function imgYear(st, year) {
   return blob(c);
 }
 
+export async function imgTarjeta(t) {
+  await document.fonts?.ready;
+  const W = 1080, H = 1350, [c, x] = mk(W, H), g = x.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, t.g[0]); g.addColorStop(1, t.g[1]); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.fillStyle = 'rgba(255,255,255,.88)'; x.font = `700 34px ${SANS}`; x.fillText(String(t.k).toUpperCase(), 90, 150);
+  x.fillStyle = '#fff'; let size = 230; x.font = `400 ${size}px ${DISPLAY}`;
+  while (x.measureText(t.big).width > W - 180 && size > 90) { size -= 10; x.font = `400 ${size}px ${DISPLAY}`; }
+  x.fillText(t.big, 90, 560);
+  if (t.mes) { const mx = Math.max(...t.mes), bw = (W - 180) / 12; t.mes.forEach((v, k) => { const h = Math.max(10, v / mx * 220); x.fillStyle = k === t.top ? '#fff' : 'rgba(255,255,255,.4)'; x.fillRect(90 + k * bw + 4, 760 - h, bw - 8, h); }); }
+  x.fillStyle = '#fff'; x.font = `400 52px ${SANS}`;
+  const words = String(t.p).split(/\s+/); let line = '', y = 900; for (const w of words) { const tt = line ? line + ' ' + w : w; if (x.measureText(tt).width > W - 180 && line) { x.fillText(line, 90, y); y += 70; line = w; } else line = tt; } if (line) x.fillText(line, 90, y);
+  x.fillStyle = 'rgba(255,255,255,.75)'; x.font = `400 30px ${SANS}`; x.fillText('Mi Biblioteca Viva', 90, H - 90);
+  return blob(c);
+}
+
 export async function imgShelf(books, title, sub) {
   await document.fonts?.ready;
   const W = 1080, H = 1350, [c, x] = mk(W, H), g = x.createLinearGradient(0, 0, 0, H);

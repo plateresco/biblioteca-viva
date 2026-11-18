@@ -3,6 +3,7 @@ import { P, setPref } from './prefs.js';
 import { $, $$, esc, ic, toast, reduce } from './ui.js';
 import { pagesToday, streak, weekDots, leftText, pace, minutesToday, fmtDur, lastReadOf, daysSince } from './metrics.js';
 import { reminderDue } from './reminder.js';
+import { sugerencias, FILTROS } from './sugerir.js';
 
 // Sesión de lectura manual (para libros de papel o audiolibros; con EPUB el lector mide el tiempo solo)
 const sess = { running: false, sec: 0, pages: 0, bookId: null, iv: null };
@@ -14,8 +15,8 @@ export function currentBook() {
 }
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
-export const HOY_CARDS = [['cont', 'Seguir leyendo'], ['meta', 'Meta de hoy'], ['semana', 'Esta semana'], ['sesion', 'Sesión de lectura'], ['ritmo', 'Ritmo para terminar'], ['retomar', 'Retomar'], ['frase', 'Frase de tus libros']];
-const CLAVES = { 'Seguir leyendo': 'cont', 'Meta de hoy': 'meta', 'Esta semana': 'semana', 'Sesión de lectura': 'sesion', 'Ritmo para terminar': 'ritmo', 'Retomar': 'retomar', 'Frase de tus libros': 'frase' };
+export const HOY_CARDS = [['cont', 'Seguir leyendo'], ['meta', 'Meta de hoy'], ['semana', 'Esta semana'], ['sesion', 'Sesión de lectura'], ['ritmo', 'Ritmo para terminar'], ['sig', 'Siguiente lectura'], ['retomar', 'Retomar'], ['frase', 'Frase de tus libros']];
+const CLAVES = { 'Seguir leyendo': 'cont', 'Meta de hoy': 'meta', 'Esta semana': 'semana', 'Sesión de lectura': 'sesion', 'Ritmo para terminar': 'ritmo', 'Siguiente lectura': 'sig', 'Retomar': 'retomar', 'Frase de tus libros': 'frase' };
 // Orden y tarjetas escondidas elegidos en Apariencia.
 function ordenarHoy(v) {
   const cards = [...v.querySelectorAll(':scope .card.hc')]; if (!cards.length) return;
@@ -29,6 +30,7 @@ export function drawHoy(ctx) {
   const retomar = S.books.filter(b => b !== cur && (b.s === 'abandonado' || (b.s === 'leyendo' && (daysSince(lastReadOf(b.id)) ?? 99) >= 7))).slice(0, 3);
   const q = S.notes.length ? S.notes[S.ui.qi % S.notes.length] : null;
   const dots = weekDots(), st = streak();
+  const sugs = sugerencias();
   if (!sess.bookId || !byId(sess.bookId)) sess.bookId = cur?.id ?? null;
   const cu = cur && coverUrl(cur);
   const sessBooks = S.books.filter(b => b.s === 'leyendo' || b.s === 'porleer');
@@ -51,12 +53,14 @@ export function drawHoy(ctx) {
      <div class="row2" style="margin-top:10px"><span class="sub">Páginas leídas</span><div class="stepper"><button id="pgm" aria-label="Menos">−</button><output id="pgo">${sess.pages}</output><button id="pgp" aria-label="Más">+</button></div></div></div>
    ${cur ? `<div class="card hc"><h3>Ritmo para terminar ${esc(cur.t)}</h3><div class="sub">Te quedan ${Math.max(0, cur.p - (cur.r || 0))} de ${cur.p} páginas.</div>
      <div class="ctl2"><span>Quiero terminarlo en</span><input id="rdays" type="range" min="3" max="60" value="21" aria-label="Días"><output id="rdo">21 días</output></div><div id="rout"></div></div>` : ''}
+   ${sugs.length ? `<div class="card hc sigc"><h3>Siguiente lectura</h3><div class="sub">Calculado en tu teléfono con lo que ya sabes de tus libros.</div><div class="sgch" id="sgch"></div><div id="sgl"></div></div>` : ''}
    ${retomar.length ? `<div class="card hc"><h3>Retomar</h3>${retomar.map(b => `<div class="resume" data-id="${b.id}"><span class="rcov" style="--c1:${b.c1 || '#555'};${coverUrl(b) ? `--art:url('${coverUrl(b)}')` : ''}"></span><div style="min-width:0;flex:1"><b>${esc(b.t)}</b><span>${ST[b.s].n}${lastReadOf(b.id) ? ` · hace ${daysSince(lastReadOf(b.id))} días` : ''}</span></div><button class="go" data-r="${b.id}">Abrir</button></div>`).join('')}</div>` : ''}
    ${q ? `<div class="card hc quotec"><h3>Frase de tus libros</h3><q>“${esc(q.text)}”</q><div class="sub">${esc(q.title)}</div></div>` : ''}
   </div>`}</div>`;
 
   $('#hsr', v).onclick = () => import('./palette.js').then(m => m.openPalette());
   $$('.stp', v).forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'add') ctx.add(); else if (a === 'isbn') ctx.add('isbn'); else import('./more.js').then(m => { m.openMore('importar'); ctx.go('more'); }); });
+  pintarSig(v, ctx, sugs);
   ordenarHoy(v);
   $('#goCur', v)?.addEventListener('click', () => cur.hasFile ? ctx.openReader(cur.id) : ctx.openSheet(cur.id));
   $$('[data-r]', v).forEach(b => b.onclick = () => { const x = byId(+b.dataset.r); x.hasFile ? ctx.openReader(x.id) : ctx.openSheet(x.id); });
@@ -92,4 +96,15 @@ export function drawHoy(ctx) {
     $('#rout', v).innerHTML = `<div class="rpair"><div><b>${ppd}</b><span>págs. por día</span></div><div><b>${mpd}</b><span>min por día</span></div></div><div class="sub" style="margin-top:8px">Lo terminarías el <b>${end.getDate()} de ${MES[end.getMonth()]}</b>. ${ppd > 40 ? 'Es un ritmo exigente.' : ppd > 20 ? 'Es un ritmo cómodo.' : 'Es un ritmo muy tranquilo.'}</div>`;
   };
   $('#rdays', v)?.addEventListener('input', rd); rd();
+}
+
+let sgf = 'todo';
+function pintarSig(v, ctx, sugs) {
+  const ch = $('#sgch', v), lst = $('#sgl', v); if (!ch || !lst) return;
+  const tiene = k => sugs.some(s => k === 'todo' || s.k.includes(k));
+  ch.innerHTML = FILTROS.filter(([k]) => tiene(k)).map(([k, n]) => `<button class="chip" data-k="${k}" aria-pressed="${sgf === k}">${n}</button>`).join('');
+  const l = sugs.filter(s => sgf === 'todo' || s.k.includes(sgf)).slice(0, 4);
+  lst.innerHTML = l.map(s => { const cu = coverUrl(s.b); return `<div class="resume sug" data-id="${s.b.id}"><span class="rcov" style="--c1:${s.b.c1 || '#555'};${cu ? `--art:url('${cu}')` : ''}"></span><div style="min-width:0;flex:1"><b>${esc(s.b.t)}</b><span>${esc(s.b.a)} · ${s.b.p} págs.</span><em class="why">${esc(s.why)}</em></div><button class="go" data-s="${s.b.id}">Ficha</button></div>`; }).join('');
+  $$('.chip', ch).forEach(c => c.onclick = () => { sgf = c.dataset.k; pintarSig(v, ctx, sugs); });
+  $$('[data-s]', lst).forEach(b => b.onclick = () => ctx.openSheet(+b.dataset.s));
 }

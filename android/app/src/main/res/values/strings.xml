@@ -3,6 +3,8 @@
     <string name="app_name">Mi Biblioteca</string>
     <string name="w_continuar_desc">El libro que estás leyendo, con su avance</string>
     <string name="w_racha_desc">Tu racha de lectura y la meta de hoy</string>
+    <string name="w_frase_desc">Una de tus frases, distinta cada día</string>
+    <string name="tile_continuar">Seguir leyendo</string>
     <string name="sc_continuar">Continuar</string>
     <string name="sc_continuar_l">Continuar leyendo</string>
     <string name="sc_agregar">Agregar libro</string>

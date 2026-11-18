@@ -25,6 +25,7 @@ export async function load() {
   S.log = await db.all('log');
   S.notes = await db.all('notes');
   S.tomb = await db.all('tomb');
+  purgarPapelera().catch(() => { });
   const m = await db.get('meta', 'extra'); if (m) S.meta = { pisos: [], cols: [], wish: [], mode: 'auto', upd: 0, ...m.v };
   // Identificador estable para reconocer el mismo libro en otro dispositivo
   for (const b of S.books) if (!b.uid) { b.uid = newUid(); b.upd = b.upd || Date.now(); await db.put('books', b); }
@@ -58,8 +59,17 @@ export async function addBook(data, file) {
   return b;
 }
 async function addTomb(uid, kind) { if (!uid) return; const t = { uid, kind, upd: Date.now() }; await db.put('tomb', t); S.tomb = S.tomb.filter(x => x.uid !== uid).concat(t); }
-export async function removeBook(id) {
-  await addTomb(byId(id)?.uid, 'book');
+// Quitar un libro lo manda a la papelera 30 días (con su archivo, frases y diario); se puede recuperar.
+export const DIAS_PAPELERA = 30;
+export async function removeBook(id, aPapelera = true) {
+  const bk = byId(id); let tid = null;
+  if (bk && aPapelera) {
+    tid = newUid();
+    try {
+      await db.put('trash', { tid, book: bk, file: await db.get('files', id) || null, notes: S.notes.filter(n => n.bookId === id), log: S.log.filter(l => l.bookId === id), at: Date.now() });
+    } catch (e) { console.warn('papelera', e); tid = null; }
+  }
+  await addTomb(bk?.uid, 'book');
   await db.del('books', id); await db.del('files', id);
   for (const l of S.log.filter(l => l.bookId === id)) await db.del('log', l.id);
   for (const n of S.notes.filter(n => n.bookId === id)) await db.del('notes', n.id);
@@ -67,6 +77,23 @@ export async function removeBook(id) {
   S.log = S.log.filter(l => l.bookId !== id);
   S.notes = S.notes.filter(n => n.bookId !== id);
   emit();
+  return tid;
+}
+export const verPapelera = async () => (await db.all('trash')).sort((a, b) => b.at - a.at);
+export async function purgarPapelera(todo = false) {
+  const lim = Date.now() - DIAS_PAPELERA * 864e5;
+  for (const t of await db.all('trash')) if (todo || t.at < lim) await db.del('trash', t.tid);
+}
+export const borrarDePapelera = tid => db.del('trash', tid);
+// Recuperar: el libro vuelve con un identificador nuevo, para que otros dispositivos no lo borren de nuevo.
+export async function recuperar(tid) {
+  const t = (await db.all('trash')).find(x => x.tid === tid); if (!t) return null;
+  const b = { ...t.book }; delete b.id; b.uid = newUid(); b.upd = Date.now(); b.order = S.books.reduce((m, x) => Math.max(m, x.order ?? 0), 0) + 1;
+  const id = await db.put('books', b); b.id = id; if (t.file) await db.put('files', t.file, id);
+  for (const n of t.notes || []) { const x = { ...n }; delete x.id; x.bookId = id; x.bookUid = b.uid; x.uid = newUid(); await db.put('notes', x); }
+  for (const l of t.log || []) { const x = { ...l }; delete x.id; x.bookId = id; await db.put('log', x); }
+  await db.del('trash', tid); await load(); emit();
+  return b;
 }
 export const getFile = id => db.get('files', id);
 
@@ -98,6 +125,7 @@ export async function addPages(bookId, n) {
 }
 
 export async function saveNote(n) {
+  n.upd = n.upd || n.createdAt || Date.now();
   if (!n.uid) { n.uid = newUid(); n.bookUid = byId(n.bookId)?.uid; }
   const id = await db.put('notes', n); if (!n.id) { n.id = id; S.notes.push(n); } emit(); return n;
 }
