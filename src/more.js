@@ -450,7 +450,7 @@ const PAGES = {
     const v = versionActual(), info = [`App: ${v ? v.name + ' (Android)' : 'web'}`, `Pantalla: ${innerWidth}x${innerHeight} · ${devicePixelRatio}x`, `Tema: ${P.theme}`, `Libros: ${S.books.length}`, `Navegador: ${navigator.userAgent}`].join('\n');
     const txt = info + '\n\nErrores:\n' + (errs.map(e => `${new Date(e.t).toLocaleString('es')} · ${e.tipo} · ${e.msg} ${e.donde}`).join('\n') || '(ninguno)');
     b.innerHTML = `<div class="card"><h3>Diagnóstico</h3><div class="sub">Si algo falla, copia esto y pégamelo: me dice exactamente qué pasó.</div>
-      <textarea id="dg" readonly rows="12" style="width:100%;margin-top:10px;font:12px/1.4 monospace;border-radius:10px;padding:10px;background:var(--surface2);color:var(--ink);border:1px solid var(--line)">${esc(txt)}</textarea>
+      <textarea id="dg" aria-label="Datos del diagnóstico" readonly rows="12" style="width:100%;margin-top:10px;font:12px/1.4 monospace;border-radius:10px;padding:10px;background:var(--surface2);color:var(--ink);border:1px solid var(--line)">${esc(txt)}</textarea>
       <div class="row" style="margin-top:10px"><button class="btn" id="dc">Copiar</button><button class="btn ghost" id="dl">Borrar registro</button></div></div>`;
     $('#dc', b).onclick = async () => { try { await navigator.clipboard.writeText(txt); toast('Copiado'); } catch { $('#dg', b).select(); toast('Selecciona y copia'); } };
     $('#dl', b).onclick = () => { try { localStorage.removeItem('bv-errs'); } catch { } toast('Registro borrado'); };
